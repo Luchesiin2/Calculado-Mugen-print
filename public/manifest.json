@@ -1,0 +1,17 @@
+{
+  "name": "3D Print Cost Master",
+  "short_name": "3D Cost",
+  "description": "Calculadora profissional de custos para impressão 3D com margens personalizadas.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#059669",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3259/3259506.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
