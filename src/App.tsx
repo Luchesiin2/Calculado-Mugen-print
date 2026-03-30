@@ -37,6 +37,7 @@ export default function App() {
   const [showPdfPopup, setShowPdfPopup] = useState(false);
   const [showTextQuotePopup, setShowTextQuotePopup] = useState(false);
   const [textQuote, setTextQuote] = useState('');
+  const [quoteType, setQuoteType] = useState<'whatsapp' | 'instagram'>('whatsapp');
   const [pdfConfig, setPdfConfig] = useState(() => {
     const saved = localStorage.getItem('pdf_config');
     return saved ? JSON.parse(saved) : {
@@ -211,29 +212,49 @@ export default function App() {
     localStorage.setItem('pdf_config', JSON.stringify(config));
   };
 
-  const openTextQuote = () => {
+  const generateTextQuote = (type: 'whatsapp' | 'instagram') => {
     const name = projectName || 'Projeto Sem Nome';
     const retail = retailPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const wholesale = wholesalePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     
-    let text = `✨ *${pdfConfig.title}* ✨\n`;
-    text += `*${siteName}*\n\n`;
+    const isWA = type === 'whatsapp';
+    const b = isWA ? '*' : ''; // Bold char for WhatsApp
+    
+    let text = `✨ ${b}${pdfConfig.title}${b} ✨\n`;
+    text += `${b}${siteName}${b}\n\n`;
     text += `Olá! Segue o orçamento detalhado para o seu projeto:\n\n`;
-    text += `📦 *Item:* ${name}\n`;
-    text += `🛠️ *Serviço:* Impressão 3D de alta qualidade com acabamento profissional.\n\n`;
-    text += `💎 *Investimento Unitário:* ${currency} ${retail}\n`;
+    text += `📦 ${b}Item:${b} ${name}\n`;
+    text += `🛠️ ${b}Serviço:${b} Impressão 3D de alta qualidade com acabamento profissional.\n\n`;
+    text += `💎 ${b}Investimento Unitário:${b} ${currency} ${retail}\n`;
     
     if (includeWholesaleInPDF) {
-      text += `🚀 *Condição Especial para Atacado:* ${currency} ${wholesale}\n`;
-      text += `_(Válido para pedidos acima de 10 unidades)_\n`;
+      text += `🚀 ${b}Condição Especial para Atacado:${b} ${currency} ${wholesale}\n`;
+      text += `_(Válido para pedidos acima de 10 unidades)_\n\n`;
     }
     
-    text += `\n✅ *Garantia de Qualidade:* Utilizamos os melhores materiais do mercado para garantir resistência e precisão nos detalhes.\n`;
-    text += `\n📝 *Observação:* ${pdfConfig.footerNote}\n`;
+    text += `•  50% de sinal para iniciar a produção\n`;
+    text += `•  50% restantes pagos na finalização\n\n`;
+    
+    text += `✅ ${b}Garantia de Qualidade:${b} Utilizamos os melhores materiais do mercado para garantir resistência e precisão nos detalhes.\n\n`;
+    
+    text += `⏳ ${b}Prazo de entrega:${b} até 25 dias após a confirmação do sinal\n\n`;
+    
+    text += `📝 ${b}Observação:${b} ${pdfConfig.footerNote}\n`;
     text += `\nFicamos à disposição para tirar qualquer dúvida! 👋`;
     
-    setTextQuote(text);
+    return text;
+  };
+
+  const openTextQuote = () => {
+    const initialText = generateTextQuote('whatsapp');
+    setTextQuote(initialText);
+    setQuoteType('whatsapp');
     setShowTextQuotePopup(true);
+  };
+
+  const handleQuoteTypeChange = (type: 'whatsapp' | 'instagram') => {
+    setQuoteType(type);
+    setTextQuote(generateTextQuote(type));
   };
 
   const copyToClipboard = () => {
@@ -851,6 +872,26 @@ export default function App() {
                   </button>
                 </div>
                 <div className="p-8">
+                  <div className="flex items-center gap-2 mb-6 bg-slate-100 p-1 rounded-xl w-fit">
+                    <button
+                      onClick={() => handleQuoteTypeChange('whatsapp')}
+                      className={`px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
+                        quoteType === 'whatsapp' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      WhatsApp
+                    </button>
+                    <button
+                      onClick={() => handleQuoteTypeChange('instagram')}
+                      className={`px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
+                        quoteType === 'instagram' ? 'bg-white text-pink-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                      }`}
+                    >
+                      <Globe className="w-4 h-4" />
+                      Instagram
+                    </button>
+                  </div>
                   <p className="text-sm text-slate-500 mb-4">
                     Edite o texto abaixo para personalizar o orçamento antes de enviar ou copiar.
                   </p>
