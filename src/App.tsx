@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Calculator, Package, User, DollarSign, Weight, History, Trash2, Save, Percent, TrendingUp, Download, Globe, X, Plus, Minus, Divide, Equal, FileText, Settings, Copy, Share2, MessageCircle } from 'lucide-react';
+import { Calculator, Package, User, DollarSign, Weight, History, Trash2, Save, Percent, TrendingUp, Download, Globe, X, Plus, Minus, Divide, Equal, FileText, Settings, Copy, Share2, MessageCircle, ArrowUpRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -187,6 +187,16 @@ export default function App() {
     const newHistory = history.filter(item => item.id !== id);
     setHistory(newHistory);
     localStorage.setItem('calc_history_v3', JSON.stringify(newHistory));
+  };
+
+  const loadHistoryItem = (item: Calculation) => {
+    setProjectName(item.name);
+    setFilamentPrice(item.filamentPrice);
+    setWeight(item.weight);
+    setRetailMargin(item.retailMargin);
+    setWholesaleMargin(item.wholesaleMargin);
+    // Scroll to top to see the loaded values
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const saveBranding = (name: string, logo: string) => {
@@ -541,12 +551,22 @@ export default function App() {
                         exit={{ opacity: 0, scale: 0.9 }}
                         className="p-4 rounded-2xl bg-slate-50 border border-slate-100 group relative hover:border-rose-200 hover:bg-rose-50/30 transition-all"
                       >
-                        <button
-                          onClick={() => deleteHistoryItem(item.id)}
-                          className="absolute top-2 right-2 p-1.5 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                          <button
+                            onClick={() => loadHistoryItem(item)}
+                            className="p-1.5 text-slate-400 hover:text-rose-900 hover:bg-rose-100 rounded-lg transition-all"
+                            title="Carregar para Calculadora"
+                          >
+                            <ArrowUpRight className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => deleteHistoryItem(item.id)}
+                            className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                            title="Excluir"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                         <div className="text-xs font-bold text-rose-900 mb-1 truncate pr-6">
                           {item.name}
                         </div>
