@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Calculator, Package, User, DollarSign, Weight, History, Trash2, Save, Percent, TrendingUp, Download, Globe, X, Plus, Minus, Divide, Equal, FileText, Settings } from 'lucide-react';
+import { Calculator, Package, User, DollarSign, Weight, History, Trash2, Save, Percent, TrendingUp, Download, Globe, X, Plus, Minus, Divide, Equal, FileText, Settings, Copy, Share2, MessageCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -35,6 +35,8 @@ export default function App() {
   const [showCalcPopup, setShowCalcPopup] = useState(false);
   const [showBrandingPopup, setShowBrandingPopup] = useState(false);
   const [showPdfPopup, setShowPdfPopup] = useState(false);
+  const [showTextQuotePopup, setShowTextQuotePopup] = useState(false);
+  const [textQuote, setTextQuote] = useState('');
   const [pdfConfig, setPdfConfig] = useState(() => {
     const saved = localStorage.getItem('pdf_config');
     return saved ? JSON.parse(saved) : {
@@ -197,6 +199,41 @@ export default function App() {
   const savePdfConfig = (config: any) => {
     setPdfConfig(config);
     localStorage.setItem('pdf_config', JSON.stringify(config));
+  };
+
+  const openTextQuote = () => {
+    const name = projectName || 'Projeto Sem Nome';
+    const retail = retailPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const wholesale = wholesalePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    
+    let text = `✨ *${pdfConfig.title}* ✨\n`;
+    text += `*${siteName}*\n\n`;
+    text += `Olá! Segue o orçamento detalhado para o seu projeto:\n\n`;
+    text += `📦 *Item:* ${name}\n`;
+    text += `🛠️ *Serviço:* Impressão 3D de alta qualidade com acabamento profissional.\n\n`;
+    text += `💎 *Investimento Unitário:* ${currency} ${retail}\n`;
+    
+    if (includeWholesaleInPDF) {
+      text += `🚀 *Condição Especial para Atacado:* ${currency} ${wholesale}\n`;
+      text += `_(Válido para pedidos acima de 10 unidades)_\n`;
+    }
+    
+    text += `\n✅ *Garantia de Qualidade:* Utilizamos os melhores materiais do mercado para garantir resistência e precisão nos detalhes.\n`;
+    text += `\n📝 *Observação:* ${pdfConfig.footerNote}\n`;
+    text += `\nFicamos à disposição para tirar qualquer dúvida! 👋`;
+    
+    setTextQuote(text);
+    setShowTextQuotePopup(true);
+  };
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(textQuote);
+    alert('Texto copiado para a área de transferência!');
+  };
+
+  const shareWhatsApp = () => {
+    const encodedText = encodeURIComponent(textQuote);
+    window.open(`https://wa.me/?text=${encodedText}`, '_blank');
   };
 
   return (
@@ -391,6 +428,13 @@ export default function App() {
                   >
                     <FileText className="w-5 h-5" />
                     Gerar PDF Cliente
+                  </button>
+                  <button
+                    onClick={openTextQuote}
+                    className="flex-1 py-4 bg-emerald-600 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors shadow-lg"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    Enviar por Texto
                   </button>
                 </div>
               </div>
@@ -758,6 +802,59 @@ export default function App() {
                   >
                     Salvar e Fechar
                   </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Text Quote Popup */}
+        <AnimatePresence>
+          {showTextQuotePopup && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden"
+              >
+                <div className="bg-emerald-600 p-6 text-white flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <MessageCircle className="w-6 h-6" />
+                    <h2 className="text-xl font-bold">Personalizar Orçamento (Texto)</h2>
+                  </div>
+                  <button 
+                    onClick={() => setShowTextQuotePopup(false)}
+                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="p-8">
+                  <p className="text-sm text-slate-500 mb-4">
+                    Edite o texto abaixo para personalizar o orçamento antes de enviar ou copiar.
+                  </p>
+                  <textarea
+                    value={textQuote}
+                    onChange={(e) => setTextQuote(e.target.value)}
+                    className="w-full h-64 p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none font-mono text-sm resize-none custom-scrollbar"
+                  />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                    <button
+                      onClick={copyToClipboard}
+                      className="py-4 bg-slate-100 text-slate-700 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-200 transition-all border border-slate-200"
+                    >
+                      <Copy className="w-5 h-5" />
+                      Copiar Texto
+                    </button>
+                    <button
+                      onClick={shareWhatsApp}
+                      className="py-4 bg-emerald-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all shadow-lg"
+                    >
+                      <Share2 className="w-5 h-5" />
+                      Enviar WhatsApp
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             </div>
