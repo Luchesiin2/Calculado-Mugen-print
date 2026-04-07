@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Calculator, Package, User, DollarSign, Weight, History, Trash2, Save, Percent, TrendingUp, Download, Globe, X, Plus, Minus, Divide, Equal, FileText, Settings, Copy, Share2, MessageCircle, ArrowUpRight } from 'lucide-react';
+import { Calculator, Package, User, DollarSign, Weight, History, Trash2, Save, Percent, TrendingUp, Download, Globe, X, Plus, Minus, Divide, Equal, FileText, Settings, Copy, Share2, MessageCircle, ArrowUpRight, ShoppingBag, Truck, Tag, Megaphone, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -36,6 +36,7 @@ export default function App() {
   const [showBrandingPopup, setShowBrandingPopup] = useState(false);
   const [showPdfPopup, setShowPdfPopup] = useState(false);
   const [showTextQuotePopup, setShowTextQuotePopup] = useState(false);
+  const [showShopeeInfo, setShowShopeeInfo] = useState(false);
   const [textQuote, setTextQuote] = useState('');
   const [quoteType, setQuoteType] = useState<'whatsapp' | 'instagram'>('whatsapp');
   const [pdfConfig, setPdfConfig] = useState(() => {
@@ -56,6 +57,14 @@ export default function App() {
   });
   const [calcDisplay, setCalcDisplay] = useState('0');
   const [calcExpression, setCalcExpression] = useState('');
+
+  // Shopee Calculator States
+  const [activeTab, setActiveTab] = useState<'direct' | 'shopee'>('direct');
+  const [shopeeShipping, setShopeeShipping] = useState<number>(0);
+  const [shopeeAds, setShopeeAds] = useState<number>(0);
+  const [shopeeDiscount, setShopeeDiscount] = useState<number>(0);
+  const [shopeeTaxRate, setShopeeTaxRate] = useState<number>(4);
+  const [shopeeManualPrice, setShopeeManualPrice] = useState<number>(0);
 
   const handleCalcInput = (val: string) => {
     if (val === 'C') {
@@ -200,6 +209,59 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const shopeeResults = useMemo(() => {
+    const price = shopeeManualPrice || retailPrice;
+    
+    let commissionRate = 0;
+    let fixedFee = 0;
+
+    if (price <= 79.99) {
+      commissionRate = 0.20;
+      fixedFee = 4.00;
+    } else if (price <= 99.99) {
+      commissionRate = 0.14;
+      fixedFee = 16.00;
+    } else if (price <= 199.99) {
+      commissionRate = 0.14;
+      fixedFee = 20.00;
+    } else {
+      commissionRate = 0.14;
+      fixedFee = 26.00;
+    }
+
+    const commission = price * commissionRate + fixedFee;
+    const tax = price * (shopeeTaxRate / 100);
+    const totalFees = commission + tax + shopeeShipping + shopeeAds + shopeeDiscount;
+    const netProfit = price - materialCost - totalFees;
+    const margin = price > 0 ? (netProfit / price) * 100 : 0;
+
+    // Calculate suggested price to maintain the same profit as retailPrice
+    // Target Profit = retailPrice - materialCost
+    // Net Profit = Price - Material - (Price * CommRate + FixedFee) - Tax - Other
+    // Target Profit = Price * (1 - CommRate - TaxRate) - Material - FixedFee - Other
+    // Price = (Target Profit + Material + FixedFee + Other) / (1 - CommRate - TaxRate)
+    
+    const targetProfit = retailPrice - materialCost;
+    const otherCosts = shopeeShipping + shopeeAds + shopeeDiscount;
+    const suggestedPrice = (targetProfit + materialCost + fixedFee + otherCosts) / (1 - commissionRate - (shopeeTaxRate / 100));
+
+    return {
+      price,
+      commission,
+      tax,
+      totalFees,
+      netProfit,
+      margin,
+      commissionRate: commissionRate * 100,
+      fixedFee,
+      suggestedPrice
+    };
+  }, [shopeeManualPrice, retailPrice, materialCost, shopeeShipping, shopeeAds, shopeeDiscount, shopeeTaxRate]);
+
+  const suggestShopeePrice = () => {
+    setShopeeManualPrice(Number(shopeeResults.suggestedPrice.toFixed(2)));
+  };
+
   const saveBranding = (name: string, logo: string) => {
     setSiteName(name);
     setSiteLogo(logo);
@@ -335,211 +397,464 @@ export default function App() {
         </div>
       </header>
 
+        <div className="flex items-center gap-2 mb-6 bg-slate-100 p-1 rounded-2xl w-fit">
+          <button
+            onClick={() => setActiveTab('direct')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'direct' 
+                ? 'bg-white text-rose-900 shadow-md' 
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <User className="w-4 h-4" />
+            Venda Direta
+          </button>
+          <button
+            onClick={() => setActiveTab('shopee')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'shopee' 
+                ? 'bg-white text-rose-900 shadow-md' 
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <ShoppingBag className="w-4 h-4" />
+            Calculadora Shopee
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Main Calculator Card */}
           <div className="lg:col-span-8 space-y-6">
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-rose-900" />
-                  Configuração de Custos e Margens
-                </h2>
-              </div>
+            <AnimatePresence mode="wait">
+              {activeTab === 'direct' ? (
+                <motion.div 
+                  key="direct-calc"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200"
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-semibold flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-rose-900" />
+                      Configuração de Custos e Margens
+                    </h2>
+                  </div>
 
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Nome do Projeto</label>
-                  <input
-                    type="text"
-                    value={projectName}
-                    onChange={(e) => setProjectName(e.target.value)}
-                    placeholder="Ex: Estátua Decorativa"
-                    className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-900 focus:border-transparent outline-none transition-all"
-                  />
-                </div>
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Nome do Projeto</label>
+                      <input
+                        type="text"
+                        value={projectName}
+                        onChange={(e) => setProjectName(e.target.value)}
+                        placeholder="Ex: Estátua Decorativa"
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-900 focus:border-transparent outline-none transition-all"
+                      />
+                    </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Material Section */}
-                  <div className="space-y-4 p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                    <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                      <Weight className="w-3 h-3" /> Custos de Material
-                    </h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1">Preço Filamento ({currency}/kg)</label>
-                        <div className="relative">
-                          <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                          <input
-                            type="number"
-                            value={filamentPrice}
-                            onChange={(e) => setFilamentPrice(Number(e.target.value))}
-                            className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
-                          />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Material Section */}
+                      <div className="space-y-4 p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                          <Weight className="w-3 h-3" /> Custos de Material
+                        </h3>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Preço Filamento ({currency}/kg)</label>
+                            <div className="relative">
+                              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                              <input
+                                type="number"
+                                value={filamentPrice}
+                                onChange={(e) => setFilamentPrice(Number(e.target.value))}
+                                className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Peso da Peça (g)</label>
+                            <div className="relative">
+                              <Weight className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                              <input
+                                type="number"
+                                value={weight}
+                                onChange={(e) => setWeight(Number(e.target.value))}
+                                className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1">Peso da Peça (g)</label>
-                        <div className="relative">
-                          <Weight className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                          <input
-                            type="number"
-                            value={weight}
-                            onChange={(e) => setWeight(Number(e.target.value))}
-                            className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
-                          />
+
+                      {/* Margins Section */}
+                      <div className="space-y-4 p-5 bg-rose-50 rounded-2xl border border-rose-100">
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-rose-900 flex items-center gap-2">
+                          <Percent className="w-3 h-3" /> Margens de Lucro (%)
+                        </h3>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Margem Cliente Final (%)</label>
+                            <div className="relative">
+                              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-800" />
+                              <input
+                                type="number"
+                                value={retailMargin}
+                                onChange={(e) => setRetailMargin(Number(e.target.value))}
+                                className="w-full pl-9 pr-4 py-2 rounded-lg border border-rose-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                              />
+                            </div>
+                            <p className="text-[10px] text-rose-900 mt-1 italic">Ex: 500% = Preço 6x o custo</p>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Margem Atacado (%)</label>
+                            <div className="relative">
+                              <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-800" />
+                              <input
+                                type="number"
+                                value={wholesaleMargin}
+                                onChange={(e) => setWholesaleMargin(Number(e.target.value))}
+                                className="w-full pl-9 pr-4 py-2 rounded-lg border border-rose-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                              />
+                            </div>
+                            <p className="text-[10px] text-rose-900 mt-1 italic">Ex: 400% = Preço 5x o custo</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100 mb-4">
+                      <input
+                        type="checkbox"
+                        id="includeWholesale"
+                        checked={includeWholesaleInPDF}
+                        onChange={(e) => setIncludeWholesaleInPDF(e.target.checked)}
+                        className="w-5 h-5 accent-rose-900 cursor-pointer"
+                      />
+                      <label htmlFor="includeWholesale" className="text-sm font-medium text-slate-700 cursor-pointer">
+                        Incluir preço de atacado no orçamento PDF
+                      </label>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <button
+                        onClick={saveCalculation}
+                        className="flex-1 py-4 bg-slate-900 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors shadow-lg"
+                      >
+                        <Save className="w-5 h-5" />
+                        Salvar Cálculo
+                      </button>
+                      <button
+                        onClick={generatePDF}
+                        className="flex-1 py-4 bg-rose-900 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-rose-950 transition-colors shadow-lg"
+                      >
+                        <FileText className="w-5 h-5" />
+                        Gerar PDF Cliente
+                      </button>
+                      <button
+                        onClick={openTextQuote}
+                        className="flex-1 py-4 bg-rose-900 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-rose-950 transition-colors shadow-lg"
+                      >
+                        <MessageCircle className="w-5 h-5" />
+                        Enviar por Texto
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key="shopee-calc"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200"
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-semibold flex items-center gap-2">
+                      <ShoppingBag className="w-5 h-5 text-rose-900" />
+                      Calculadora de Venda Shopee
+                    </h2>
+                    <button 
+                      onClick={() => setShowShopeeInfo(true)}
+                      className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200 transition-colors"
+                      title="Como as taxas são calculadas?"
+                    >
+                      <Info className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-6">
+                    {/* Price Suggestion Banner */}
+                    <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-rose-100 rounded-xl text-rose-900">
+                          <TrendingUp className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-rose-900 uppercase tracking-wider">Preço Sugerido para Shopee</p>
+                          <p className="text-lg font-bold text-slate-900">
+                            {currency} {shopeeResults.suggestedPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={suggestShopeePrice}
+                        className="px-4 py-2 bg-rose-900 text-white rounded-lg text-sm font-bold hover:bg-rose-950 transition-all shadow-sm"
+                      >
+                        Usar Preço Sugerido
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-6">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-2">Preço de Venda na Shopee ({currency})</label>
+                          <div className="relative">
+                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-900" />
+                            <input
+                              type="number"
+                              value={shopeeManualPrice || ''}
+                              onChange={(e) => setShopeeManualPrice(Number(e.target.value))}
+                              placeholder={`Base: ${retailPrice.toFixed(2)}`}
+                              className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none font-bold text-lg"
+                            />
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-1 italic">Este é o valor que o cliente verá no anúncio.</p>
+                        </div>
+
+                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                          <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                            <Truck className="w-3 h-3" /> Custos Logísticos
+                          </h3>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Frete Pago pelo Vendedor</label>
+                            <div className="relative">
+                              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                              <input
+                                type="number"
+                                value={shopeeShipping}
+                                onChange={(e) => setShopeeShipping(Number(e.target.value))}
+                                className="w-full pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                              />
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-1">Valor do frete que você absorve para o cliente.</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-6">
+                        <div className="p-5 bg-rose-50/50 rounded-2xl border border-rose-100 space-y-4">
+                          <h3 className="text-xs font-bold uppercase tracking-widest text-rose-900 flex items-center gap-2">
+                            <Megaphone className="w-3 h-3" /> Marketing e Promoção
+                          </h3>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs text-slate-500 mb-1">Shopee Ads</label>
+                              <div className="relative">
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                <input
+                                  type="number"
+                                  value={shopeeAds}
+                                  onChange={(e) => setShopeeAds(Number(e.target.value))}
+                                  className="w-full pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs text-slate-500 mb-1">Cupons/Desc.</label>
+                              <div className="relative">
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                <input
+                                  type="number"
+                                  value={shopeeDiscount}
+                                  onChange={(e) => setShopeeDiscount(Number(e.target.value))}
+                                  className="w-full pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-slate-400 italic">Investimento em anúncios e descontos por venda.</p>
+                        </div>
+
+                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                          <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                            <Tag className="w-3 h-3" /> Impostos e Notas
+                          </h3>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Alíquota de Imposto (%)</label>
+                            <select 
+                              value={shopeeTaxRate}
+                              onChange={(e) => setShopeeTaxRate(Number(e.target.value))}
+                              className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none bg-white"
+                            >
+                              <option value={0}>MEI (0%)</option>
+                              <option value={4}>Simples Nacional (4%)</option>
+                              <option value={6}>Simples Nacional (6%)</option>
+                              <option value={10}>Outros (10%)</option>
+                            </select>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-
-                  {/* Margins Section */}
-                  <div className="space-y-4 p-5 bg-rose-50 rounded-2xl border border-rose-100">
-                    <h3 className="text-xs font-bold uppercase tracking-widest text-rose-900 flex items-center gap-2">
-                      <Percent className="w-3 h-3" /> Margens de Lucro (%)
-                    </h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1">Margem Cliente Final (%)</label>
-                        <div className="relative">
-                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-800" />
-                          <input
-                            type="number"
-                            value={retailMargin}
-                            onChange={(e) => setRetailMargin(Number(e.target.value))}
-                            className="w-full pl-9 pr-4 py-2 rounded-lg border border-rose-200 focus:ring-2 focus:ring-rose-900 outline-none"
-                          />
-                        </div>
-                        <p className="text-[10px] text-rose-900 mt-1 italic">Ex: 500% = Preço 6x o custo</p>
-                      </div>
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1">Margem Atacado (%)</label>
-                        <div className="relative">
-                          <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-800" />
-                          <input
-                            type="number"
-                            value={wholesaleMargin}
-                            onChange={(e) => setWholesaleMargin(Number(e.target.value))}
-                            className="w-full pl-9 pr-4 py-2 rounded-lg border border-rose-200 focus:ring-2 focus:ring-rose-900 outline-none"
-                          />
-                        </div>
-                        <p className="text-[10px] text-rose-900 mt-1 italic">Ex: 400% = Preço 5x o custo</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100 mb-4">
-                  <input
-                    type="checkbox"
-                    id="includeWholesale"
-                    checked={includeWholesaleInPDF}
-                    onChange={(e) => setIncludeWholesaleInPDF(e.target.checked)}
-                    className="w-5 h-5 accent-rose-900 cursor-pointer"
-                  />
-                  <label htmlFor="includeWholesale" className="text-sm font-medium text-slate-700 cursor-pointer">
-                    Incluir preço de atacado no orçamento PDF
-                  </label>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    onClick={saveCalculation}
-                    className="flex-1 py-4 bg-slate-900 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors shadow-lg"
-                  >
-                    <Save className="w-5 h-5" />
-                    Salvar Cálculo
-                  </button>
-                  <button
-                    onClick={generatePDF}
-                    className="flex-1 py-4 bg-rose-900 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-rose-950 transition-colors shadow-lg"
-                  >
-                    <FileText className="w-5 h-5" />
-                    Gerar PDF Cliente
-                  </button>
-                  <button
-                    onClick={openTextQuote}
-                    className="flex-1 py-4 bg-emerald-600 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-colors shadow-lg"
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                    Enviar por Texto
-                  </button>
-                </div>
-              </div>
-            </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Results Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <Weight className="w-6 h-6 text-slate-400" />
-                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Custo de Material</span>
-                </div>
-                <div className="text-sm text-slate-500 mb-1">Custo Total do Projeto</div>
-                <div className="text-4xl font-bold tracking-tight text-slate-900">
-                  {currency} {materialCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-                <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-1 text-sm text-slate-500">
-                  <div className="flex justify-between">
-                    <span>Preço Filamento:</span>
-                    <span className="font-mono">{currency} {filamentPrice.toFixed(2)}/kg</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Custo por Grama:</span>
-                    <span className="font-mono">{currency} {(filamentPrice / 1000).toFixed(4)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Peso Total:</span>
-                    <span className="font-mono">{weight}g</span>
-                  </div>
-                </div>
-              </motion.div>
+            <AnimatePresence mode="wait">
+              {activeTab === 'direct' ? (
+                <motion.div 
+                  key="direct-results"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="grid grid-cols-1 md:grid-cols-3 gap-6"
+                >
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <Weight className="w-6 h-6 text-slate-400" />
+                      <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Custo de Material</span>
+                    </div>
+                    <div className="text-sm text-slate-500 mb-1">Custo Total do Projeto</div>
+                    <div className="text-4xl font-bold tracking-tight text-slate-900">
+                      {currency} {materialCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-1 text-sm text-slate-500">
+                      <div className="flex justify-between">
+                        <span>Preço Filamento:</span>
+                        <span className="font-mono">{currency} {filamentPrice.toFixed(2)}/kg</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Custo por Grama:</span>
+                        <span className="font-mono">{currency} {(filamentPrice / 1000).toFixed(4)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Peso Total:</span>
+                        <span className="font-mono">{weight}g</span>
+                      </div>
+                    </div>
+                  </motion.div>
 
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-rose-900 rounded-3xl p-6 text-white shadow-xl shadow-rose-100"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <User className="w-6 h-6 opacity-80" />
-                  <span className="text-xs font-bold uppercase tracking-widest opacity-80">Cliente Final</span>
-                </div>
-                <div className="text-sm opacity-80 mb-1">Preço com {retailMargin}% de Margem</div>
-                <div className="text-4xl font-bold tracking-tight">
-                  {currency} {retailPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-                <div className="mt-4 pt-4 border-t border-white/20 flex justify-between text-sm">
-                  <span>Lucro: {currency} {(retailPrice - materialCost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  <span className="opacity-60">Multiplicador: {(retailPrice / materialCost).toFixed(1)}x</span>
-                </div>
-              </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-rose-900 rounded-3xl p-6 text-white shadow-xl shadow-rose-100"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <User className="w-6 h-6 opacity-80" />
+                      <span className="text-xs font-bold uppercase tracking-widest opacity-80">Cliente Final</span>
+                    </div>
+                    <div className="text-sm opacity-80 mb-1">Preço com {retailMargin}% de Margem</div>
+                    <div className="text-4xl font-bold tracking-tight">
+                      {currency} {retailPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-white/20 flex justify-between text-sm">
+                      <span>Lucro: {currency} {(retailPrice - materialCost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      <span className="opacity-60">Multiplicador: {(retailPrice / materialCost).toFixed(1)}x</span>
+                    </div>
+                  </motion.div>
 
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <Package className="w-6 h-6 text-rose-900" />
-                  <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Atacado</span>
-                </div>
-                <div className="text-sm text-slate-500 mb-1">Preço com {wholesaleMargin}% de Margem</div>
-                <div className="text-4xl font-bold tracking-tight text-slate-900">
-                  {currency} {wholesalePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-                <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between text-sm text-slate-500">
-                  <span>Lucro: {currency} {(wholesalePrice - materialCost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                  <span className="opacity-60">Multiplicador: {(wholesalePrice / materialCost).toFixed(1)}x</span>
-                </div>
-              </motion.div>
-            </div>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <Package className="w-6 h-6 text-rose-900" />
+                      <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Atacado</span>
+                    </div>
+                    <div className="text-sm text-slate-500 mb-1">Preço com {wholesaleMargin}% de Margem</div>
+                    <div className="text-4xl font-bold tracking-tight text-slate-900">
+                      {currency} {wholesalePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between text-sm text-slate-500">
+                      <span>Lucro: {currency} {(wholesalePrice - materialCost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      <span className="opacity-60">Multiplicador: {(wholesalePrice / materialCost).toFixed(1)}x</span>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key="shopee-results"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="grid grid-cols-1 md:grid-cols-3 gap-6"
+                >
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <ShoppingBag className="w-6 h-6 text-slate-400" />
+                      <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Resumo Shopee</span>
+                    </div>
+                    <div className="text-sm text-slate-500 mb-1">Total de Taxas e Custos</div>
+                    <div className="text-4xl font-bold tracking-tight text-slate-900">
+                      {currency} {shopeeResults.totalFees.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-1 text-sm text-slate-500">
+                      <div className="flex justify-between">
+                        <span>Comissão ({shopeeResults.commissionRate}%):</span>
+                        <span className="font-mono">{currency} {shopeeResults.commission.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Impostos ({shopeeTaxRate}%):</span>
+                        <span className="font-mono">{currency} {shopeeResults.tax.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Outros Custos:</span>
+                        <span className="font-mono">{currency} {(shopeeShipping + shopeeAds + shopeeDiscount).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-rose-900 rounded-3xl p-6 text-white shadow-xl shadow-rose-100"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <DollarSign className="w-6 h-6 opacity-80" />
+                      <span className="text-xs font-bold uppercase tracking-widest opacity-80">Lucro Líquido</span>
+                    </div>
+                    <div className="text-sm opacity-80 mb-1">Após todas as taxas</div>
+                    <div className="text-4xl font-bold tracking-tight">
+                      {currency} {shopeeResults.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-white/20 flex justify-between text-sm">
+                      <span>Margem Líquida:</span>
+                      <span className="font-bold">{shopeeResults.margin.toFixed(1)}%</span>
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <TrendingUp className="w-6 h-6 text-rose-900" />
+                      <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Comparativo</span>
+                    </div>
+                    <div className="text-sm text-slate-500 mb-1">Recebimento Líquido</div>
+                    <div className="text-4xl font-bold tracking-tight text-slate-900">
+                      {currency} {(shopeeResults.price - shopeeResults.totalFees).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between text-sm text-slate-500">
+                      <span>Custo Material:</span>
+                      <span>{currency} {materialCost.toFixed(2)}</span>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Sidebar / History */}
@@ -714,6 +1029,164 @@ export default function App() {
           </motion.button>
         </div>
 
+        {/* Shopee Info Popup */}
+        <AnimatePresence>
+          {showShopeeInfo && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[110]">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden"
+              >
+                <div className="bg-rose-900 p-6 text-white flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Info className="w-6 h-6" />
+                    <h2 className="text-xl font-bold">Entendendo as Taxas Shopee</h2>
+                  </div>
+                  <button 
+                    onClick={() => setShowShopeeInfo(false)}
+                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="p-8 space-y-6 overflow-y-auto max-h-[70vh] custom-scrollbar">
+                  <section className="space-y-3">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                      <Percent className="w-4 h-4 text-rose-900" />
+                      Comissão e Taxa de Pagamento
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      A Shopee cobra uma comissão que já inclui a taxa de processamento de pagamento. O valor varia conforme o preço do produto:
+                    </p>
+                    <ul className="text-xs space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      <li className="flex justify-between"><span>Até R$ 79,99:</span> <span className="font-bold">20% + R$ 4,00</span></li>
+                      <li className="flex justify-between"><span>R$ 80,00 a R$ 99,99:</span> <span className="font-bold">14% + R$ 16,00</span></li>
+                      <li className="flex justify-between"><span>R$ 100,00 a R$ 199,99:</span> <span className="font-bold">14% + R$ 20,00</span></li>
+                      <li className="flex justify-between"><span>Acima de R$ 200,00:</span> <span className="font-bold">14% + R$ 26,00</span></li>
+                    </ul>
+                  </section>
+
+                  <section className="space-y-3">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-rose-900" />
+                      Frete Pago pelo Vendedor
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Se você oferece frete grátis ou descontos no frete, esse valor sai diretamente do seu lucro. Use o campo de logística para simular quanto esse custo impacta sua margem final.
+                    </p>
+                  </section>
+
+                  <section className="space-y-3">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                      <Megaphone className="w-4 h-4 text-rose-900" />
+                      Marketing (Ads e Cupons)
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      <strong>Shopee Ads:</strong> O custo médio que você gasta em anúncios para realizar uma venda.<br/>
+                      <strong>Cupons:</strong> O valor do desconto que você oferece e que é absorvido pela sua loja.
+                    </p>
+                  </section>
+
+                  <div className="p-4 bg-rose-50 rounded-xl border border-rose-100">
+                    <p className="text-xs text-rose-900 font-medium">
+                      💡 <strong>Dica:</strong> Use o "Preço Sugerido" para garantir que você receba o mesmo valor líquido que receberia em uma venda direta fora da plataforma.
+                    </p>
+                  </div>
+                </div>
+                <div className="p-6 bg-slate-50 border-t border-slate-100">
+                  <button
+                    onClick={() => setShowShopeeInfo(false)}
+                    className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
+                  >
+                    Entendi
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Shopee Info Popup */}
+        <AnimatePresence>
+          {showShopeeInfo && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[110]">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden"
+              >
+                <div className="bg-rose-900 p-6 text-white flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Info className="w-6 h-6" />
+                    <h2 className="text-xl font-bold">Entendendo as Taxas Shopee</h2>
+                  </div>
+                  <button 
+                    onClick={() => setShowShopeeInfo(false)}
+                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="p-8 space-y-6 overflow-y-auto max-h-[70vh] custom-scrollbar">
+                  <section className="space-y-3">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                      <Percent className="w-4 h-4 text-rose-900" />
+                      Comissão e Taxa de Pagamento
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      A Shopee cobra uma comissão que já inclui a taxa de processamento de pagamento. O valor varia conforme o preço do produto:
+                    </p>
+                    <ul className="text-xs space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      <li className="flex justify-between"><span>Até R$ 79,99:</span> <span className="font-bold">20% + R$ 4,00</span></li>
+                      <li className="flex justify-between"><span>R$ 80,00 a R$ 99,99:</span> <span className="font-bold">14% + R$ 16,00</span></li>
+                      <li className="flex justify-between"><span>R$ 100,00 a R$ 199,99:</span> <span className="font-bold">14% + R$ 20,00</span></li>
+                      <li className="flex justify-between"><span>Acima de R$ 200,00:</span> <span className="font-bold">14% + R$ 26,00</span></li>
+                    </ul>
+                  </section>
+
+                  <section className="space-y-3">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-rose-900" />
+                      Frete Pago pelo Vendedor
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Se você oferece frete grátis ou descontos no frete, esse valor sai diretamente do seu lucro. Use o campo de logística para simular quanto esse custo impacta sua margem final.
+                    </p>
+                  </section>
+
+                  <section className="space-y-3">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                      <Megaphone className="w-4 h-4 text-rose-900" />
+                      Marketing (Ads e Cupons)
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      <strong>Shopee Ads:</strong> O custo médio que você gasta em anúncios para realizar uma venda.<br/>
+                      <strong>Cupons:</strong> O valor do desconto que você oferece e que é absorvido pela sua loja.
+                    </p>
+                  </section>
+
+                  <div className="p-4 bg-rose-50 rounded-xl border border-rose-100">
+                    <p className="text-xs text-rose-900 font-medium">
+                      💡 <strong>Dica:</strong> Use o "Preço Sugerido" para garantir que você receba o mesmo valor líquido que receberia em uma venda direta fora da plataforma.
+                    </p>
+                  </div>
+                </div>
+                <div className="p-6 bg-slate-50 border-t border-slate-100">
+                  <button
+                    onClick={() => setShowShopeeInfo(false)}
+                    className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
+                  >
+                    Entendi
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
         {/* PDF Customization Popup */}
         <AnimatePresence>
           {showPdfPopup && (
@@ -876,7 +1349,7 @@ export default function App() {
                     <button
                       onClick={() => handleQuoteTypeChange('whatsapp')}
                       className={`px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
-                        quoteType === 'whatsapp' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                        quoteType === 'whatsapp' ? 'bg-white text-rose-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                       }`}
                     >
                       <MessageCircle className="w-4 h-4" />
@@ -885,7 +1358,7 @@ export default function App() {
                     <button
                       onClick={() => handleQuoteTypeChange('instagram')}
                       className={`px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
-                        quoteType === 'instagram' ? 'bg-white text-pink-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                        quoteType === 'instagram' ? 'bg-white text-rose-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
                       }`}
                     >
                       <Globe className="w-4 h-4" />
@@ -898,7 +1371,7 @@ export default function App() {
                   <textarea
                     value={textQuote}
                     onChange={(e) => setTextQuote(e.target.value)}
-                    className="w-full h-64 p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-emerald-500 outline-none font-mono text-sm resize-none custom-scrollbar"
+                    className="w-full h-64 p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-800 outline-none font-mono text-sm resize-none custom-scrollbar"
                   />
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
                     <button
@@ -910,7 +1383,7 @@ export default function App() {
                     </button>
                     <button
                       onClick={shareWhatsApp}
-                      className="py-4 bg-emerald-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all shadow-lg"
+                      className="py-4 bg-rose-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-rose-950 transition-all shadow-lg"
                     >
                       <Share2 className="w-5 h-5" />
                       Enviar WhatsApp
