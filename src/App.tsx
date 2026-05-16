@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Calculator, Package, User, DollarSign, Weight, History, Trash2, Save, Percent, TrendingUp, Download, Globe, X, Plus, Minus, Divide, Equal, FileText, Settings, Copy, Share2, MessageCircle, ArrowUpRight, ShoppingBag, Truck, Tag, Megaphone, Info } from 'lucide-react';
+import { Calculator, Package, User, DollarSign, Weight, History, Trash2, Save, Percent, TrendingUp, Download, Globe, X, Plus, Minus, Divide, Equal, FileText, Settings, Copy, Share2, MessageCircle, ArrowUpRight, ShoppingBag, Truck, Tag, Megaphone, Info, Clock, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -15,6 +15,14 @@ interface Calculation {
   retailPrice: number;
   wholesalePrice: number;
   timestamp: number;
+  // Advanced cost fields
+  useAdvancedCosts?: boolean;
+  printTimeHours?: number;
+  printTimeMinutes?: number;
+  hourlyRate?: number;
+  electricityKwhPrice?: number;
+  printerPowerWatts?: number;
+  advancedTotalCost?: number;
 }
 
 export default function App() {
@@ -57,6 +65,14 @@ export default function App() {
   });
   const [calcDisplay, setCalcDisplay] = useState('0');
   const [calcExpression, setCalcExpression] = useState('');
+
+  // Advanced Cost States
+  const [useAdvancedCosts, setUseAdvancedCosts] = useState<boolean>(false);
+  const [printTimeHours, setPrintTimeHours] = useState<number>(0);
+  const [printTimeMinutes, setPrintTimeMinutes] = useState<number>(0);
+  const [hourlyRate, setHourlyRate] = useState<number>(5);
+  const [electricityKwhPrice, setElectricityKwhPrice] = useState<number>(0.85);
+  const [printerPowerWatts, setPrinterPowerWatts] = useState<number>(150);
 
   // Shopee Calculator States
   const [activeTab, setActiveTab] = useState<'direct' | 'shopee'>('direct');
@@ -166,13 +182,28 @@ export default function App() {
 
   const materialCost = useMemo(() => (filamentPrice / 1000) * weight, [filamentPrice, weight]);
 
+  const advancedCosts = useMemo(() => {
+    if (!useAdvancedCosts) return { total: 0, electricity: 0, labor: 0, totalHours: 0 };
+    const totalHours = printTimeHours + (printTimeMinutes / 60);
+    const electricity = (printerPowerWatts / 1000) * totalHours * electricityKwhPrice;
+    const labor = totalHours * hourlyRate;
+    return {
+      total: electricity + labor,
+      electricity,
+      labor,
+      totalHours
+    };
+  }, [useAdvancedCosts, printTimeHours, printTimeMinutes, hourlyRate, electricityKwhPrice, printerPowerWatts]);
+
+  const totalProductionCost = useMemo(() => materialCost + advancedCosts.total, [materialCost, advancedCosts.total]);
+
   const retailPrice = useMemo(() => {
-    return materialCost * (1 + retailMargin / 100);
-  }, [materialCost, retailMargin]);
+    return totalProductionCost * (1 + retailMargin / 100);
+  }, [totalProductionCost, retailMargin]);
 
   const wholesalePrice = useMemo(() => {
-    return materialCost * (1 + wholesaleMargin / 100);
-  }, [materialCost, wholesaleMargin]);
+    return totalProductionCost * (1 + wholesaleMargin / 100);
+  }, [totalProductionCost, wholesaleMargin]);
 
   const saveCalculation = () => {
     const newCalc: Calculation = {
@@ -186,6 +217,13 @@ export default function App() {
       retailPrice,
       wholesalePrice,
       timestamp: Date.now(),
+      useAdvancedCosts,
+      printTimeHours,
+      printTimeMinutes,
+      hourlyRate,
+      electricityKwhPrice,
+      printerPowerWatts,
+      advancedTotalCost: advancedCosts.total
     };
     const newHistory = [newCalc, ...history].slice(0, 10);
     setHistory(newHistory);
@@ -205,6 +243,12 @@ export default function App() {
     setWeight(item.weight);
     setRetailMargin(item.retailMargin);
     setWholesaleMargin(item.wholesaleMargin);
+    setUseAdvancedCosts(item.useAdvancedCosts || false);
+    setPrintTimeHours(item.printTimeHours || 0);
+    setPrintTimeMinutes(item.printTimeMinutes || 0);
+    setHourlyRate(item.hourlyRate || 5);
+    setElectricityKwhPrice(item.electricityKwhPrice || 0.85);
+    setPrinterPowerWatts(item.printerPowerWatts || 150);
     // Scroll to top to see the loaded values
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -232,18 +276,18 @@ export default function App() {
     const commission = price * commissionRate + fixedFee;
     const tax = price * (shopeeTaxRate / 100);
     const totalFees = commission + tax + shopeeShipping + shopeeAds + shopeeDiscount;
-    const netProfit = price - materialCost - totalFees;
+    const netProfit = price - totalProductionCost - totalFees;
     const margin = price > 0 ? (netProfit / price) * 100 : 0;
 
     // Calculate suggested price to maintain the same profit as retailPrice
-    // Target Profit = retailPrice - materialCost
-    // Net Profit = Price - Material - (Price * CommRate + FixedFee) - Tax - Other
-    // Target Profit = Price * (1 - CommRate - TaxRate) - Material - FixedFee - Other
-    // Price = (Target Profit + Material + FixedFee + Other) / (1 - CommRate - TaxRate)
+    // Target Profit = retailPrice - totalProductionCost
+    // Net Profit = Price - MaterialTotal - (Price * CommRate + FixedFee) - Tax - Other
+    // Target Profit = Price * (1 - CommRate - TaxRate) - MaterialTotal - FixedFee - Other
+    // Price = (Target Profit + MaterialTotal + FixedFee + Other) / (1 - CommRate - TaxRate)
     
-    const targetProfit = retailPrice - materialCost;
+    const targetProfit = retailPrice - totalProductionCost;
     const otherCosts = shopeeShipping + shopeeAds + shopeeDiscount;
-    const suggestedPrice = (targetProfit + materialCost + fixedFee + otherCosts) / (1 - commissionRate - (shopeeTaxRate / 100));
+    const suggestedPrice = (targetProfit + totalProductionCost + fixedFee + otherCosts) / (1 - commissionRate - (shopeeTaxRate / 100));
 
     return {
       price,
@@ -256,7 +300,7 @@ export default function App() {
       fixedFee,
       suggestedPrice
     };
-  }, [shopeeManualPrice, retailPrice, materialCost, shopeeShipping, shopeeAds, shopeeDiscount, shopeeTaxRate]);
+  }, [shopeeManualPrice, retailPrice, totalProductionCost, shopeeShipping, shopeeAds, shopeeDiscount, shopeeTaxRate]);
 
   const suggestShopeePrice = () => {
     setShopeeManualPrice(Number(shopeeResults.suggestedPrice.toFixed(2)));
@@ -523,7 +567,102 @@ export default function App() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100 mb-4">
+                      {/* Advanced Costs Section */}
+                      <div className="md:col-span-2">
+                        <div 
+                          onClick={() => setUseAdvancedCosts(!useAdvancedCosts)}
+                          className="flex items-center justify-between p-4 bg-slate-900 text-white rounded-2xl shadow-lg cursor-pointer hover:bg-slate-800 transition-all mb-4"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${useAdvancedCosts ? 'bg-rose-500' : 'bg-slate-600'}`}>
+                              <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${useAdvancedCosts ? 'translate-x-4' : 'translate-x-0'}`} />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-bold">Ativar Custos Avançados</h3>
+                              <p className="text-[10px] opacity-70 italic">Contabilizar tempo de impressão e eletricidade no custo base</p>
+                            </div>
+                          </div>
+                          <Clock className={`w-6 h-6 transition-all ${useAdvancedCosts ? 'text-rose-400 opacity-100' : 'text-white opacity-30'}`} />
+                        </div>
+
+                        {useAdvancedCosts && (
+                          <motion.div 
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden mb-6"
+                          >
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-rose-50/30 border border-rose-100/50 rounded-3xl">
+                              <div className="space-y-4">
+                                <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                  <Clock className="w-3 h-3" /> Tempo e Mão de Obra
+                                </h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">Horas</label>
+                                    <input
+                                      type="number"
+                                      value={printTimeHours}
+                                      onChange={(e) => setPrintTimeHours(Number(e.target.value))}
+                                      className="w-full px-4 py-2 rounded-xl border border-rose-100 focus:ring-2 focus:ring-rose-900 outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">Minutos</label>
+                                    <input
+                                      type="number"
+                                      value={printTimeMinutes}
+                                      onChange={(e) => setPrintTimeMinutes(Number(e.target.value))}
+                                      className="w-full px-4 py-2 rounded-xl border border-rose-100 focus:ring-2 focus:ring-rose-900 outline-none"
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] text-slate-500 mb-1 font-bold">Custo Hora ({currency})</label>
+                                  <div className="relative">
+                                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                    <input
+                                      type="number"
+                                      value={hourlyRate}
+                                      onChange={(e) => setHourlyRate(Number(e.target.value))}
+                                      className="w-full pl-8 pr-4 py-2 rounded-xl border border-rose-100 focus:ring-2 focus:ring-rose-900 outline-none"
+                                    />
+                                  </div>
+                                  <p className="text-[9px] text-slate-400 mt-1 italic">Mão de obra, manutenção e uso da máquina</p>
+                                </div>
+                              </div>
+
+                              <div className="space-y-4">
+                                <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                  <Zap className="w-3 h-3" /> Energia Elétrica
+                                </h3>
+                                <div>
+                                  <label className="block text-[10px] text-slate-500 mb-1 font-bold">Preço kWh ({currency})</label>
+                                  <input
+                                    type="number"
+                                    value={electricityKwhPrice}
+                                    step="0.01"
+                                    onChange={(e) => setElectricityKwhPrice(Number(e.target.value))}
+                                    className="w-full px-4 py-2 rounded-xl border border-rose-100 focus:ring-2 focus:ring-rose-900 outline-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] text-slate-500 mb-1 font-bold">Consumo Impressora (Watts)</label>
+                                  <input
+                                    type="number"
+                                    value={printerPowerWatts}
+                                    onChange={(e) => setPrinterPowerWatts(Number(e.target.value))}
+                                    className="w-full px-4 py-2 rounded-xl border border-rose-100 focus:ring-2 focus:ring-rose-900 outline-none"
+                                  />
+                                  <p className="text-[9px] text-slate-400 mt-1 italic">Média: 150W - 300W</p>
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100 mb-4">
                       <input
                         type="checkbox"
                         id="includeWholesale"
@@ -718,24 +857,32 @@ export default function App() {
                   >
                     <div className="flex items-center justify-between mb-4">
                       <Weight className="w-6 h-6 text-slate-400" />
-                      <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Custo de Material</span>
+                      <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Custo de Produção</span>
                     </div>
-                    <div className="text-sm text-slate-500 mb-1">Custo Total do Projeto</div>
+                    <div className="text-sm text-slate-500 mb-1">Custo Total (Material + Extras)</div>
                     <div className="text-4xl font-bold tracking-tight text-slate-900">
-                      {currency} {materialCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {currency} {totalProductionCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-1 text-sm text-slate-500">
                       <div className="flex justify-between">
-                        <span>Preço Filamento:</span>
-                        <span className="font-mono">{currency} {filamentPrice.toFixed(2)}/kg</span>
+                        <span>Material ({weight}g):</span>
+                        <span className="font-mono">{currency} {materialCost.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Custo por Grama:</span>
-                        <span className="font-mono">{currency} {(filamentPrice / 1000).toFixed(4)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Peso Total:</span>
-                        <span className="font-mono">{weight}g</span>
+                      {useAdvancedCosts && (
+                        <>
+                          <div className="flex justify-between text-blue-600 font-medium">
+                            <span>Tempo ({advancedCosts.totalHours.toFixed(1)}h):</span>
+                            <span className="font-mono">{currency} {advancedCosts.labor.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-yellow-600 font-medium">
+                            <span>Eletricidade:</span>
+                            <span className="font-mono">{currency} {advancedCosts.electricity.toFixed(2)}</span>
+                          </div>
+                        </>
+                      )}
+                      <div className="flex justify-between border-t border-slate-50 pt-1 mt-1 font-bold text-slate-700">
+                        <span>Total Gasto:</span>
+                        <span>{currency} {totalProductionCost.toFixed(2)}</span>
                       </div>
                     </div>
                   </motion.div>
@@ -754,8 +901,8 @@ export default function App() {
                       {currency} {retailPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <div className="mt-4 pt-4 border-t border-white/20 flex justify-between text-sm">
-                      <span>Lucro: {currency} {(retailPrice - materialCost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                      <span className="opacity-60">Multiplicador: {(retailPrice / materialCost).toFixed(1)}x</span>
+                      <span>Lucro: {currency} {(retailPrice - totalProductionCost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      <span className="opacity-60">Multiplicador: {(retailPrice / totalProductionCost).toFixed(1)}x</span>
                     </div>
                   </motion.div>
 
@@ -773,8 +920,8 @@ export default function App() {
                       {currency} {wholesalePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between text-sm text-slate-500">
-                      <span>Lucro: {currency} {(wholesalePrice - materialCost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                      <span className="opacity-60">Multiplicador: {(wholesalePrice / materialCost).toFixed(1)}x</span>
+                      <span>Lucro: {currency} {(wholesalePrice - totalProductionCost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                      <span className="opacity-60">Multiplicador: {(wholesalePrice / totalProductionCost).toFixed(1)}x</span>
                     </div>
                   </motion.div>
                 </motion.div>
@@ -848,8 +995,8 @@ export default function App() {
                       {currency} {(shopeeResults.price - shopeeResults.totalFees).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between text-sm text-slate-500">
-                      <span>Custo Material:</span>
-                      <span>{currency} {materialCost.toFixed(2)}</span>
+                      <span>Custo Total:</span>
+                      <span>{currency} {totalProductionCost.toFixed(2)}</span>
                     </div>
                   </motion.div>
                 </motion.div>
