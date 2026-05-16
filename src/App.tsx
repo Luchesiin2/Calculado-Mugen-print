@@ -23,7 +23,32 @@ interface Calculation {
   electricityKwhPrice?: number;
   printerPowerWatts?: number;
   advancedTotalCost?: number;
+  printerPrice?: number;
+  printerLifespan?: number;
+  printerModel?: string;
 }
+
+const PRINTER_PRESETS = [
+  { name: 'Personalizado', price: 1500, lifespan: 5000 },
+  { name: 'Bambu Lab A1 Mini', price: 1900, lifespan: 5000 },
+  { name: 'Bambu Lab A1', price: 3200, lifespan: 6000 },
+  { name: 'Bambu Lab P1P', price: 5500, lifespan: 8000 },
+  { name: 'Bambu Lab P1S', price: 6500, lifespan: 8000 },
+  { name: 'Bambu Lab X1-Carbon', price: 12500, lifespan: 10000 },
+  { name: 'Creality Ender 3 V3 SE', price: 1300, lifespan: 3000 },
+  { name: 'Creality Ender 3 V3 KE', price: 1900, lifespan: 4000 },
+  { name: 'Creality K1C', price: 3800, lifespan: 6000 },
+  { name: 'Creality K1', price: 3200, lifespan: 6000 },
+  { name: 'Creality K1 Max', price: 5500, lifespan: 8000 },
+  { name: 'Creality Ender 3 V2', price: 1100, lifespan: 2500 },
+  { name: 'Prusa MK4', price: 9500, lifespan: 12000 },
+  { name: 'Prusa MINI+', price: 4500, lifespan: 8000 },
+  { name: 'Elegoo Neptune 4 Pro', price: 2300, lifespan: 4000 },
+  { name: 'Anycubic Kobra 2 Pro', price: 2400, lifespan: 4000 },
+  { name: 'Sovol SV06', price: 1800, lifespan: 4000 },
+  { name: 'Resina: Elegoo Mars 5', price: 2500, lifespan: 2000 },
+  { name: 'Resina: Anycubic Photon Mono 2', price: 1800, lifespan: 2000 },
+];
 
 export default function App() {
   const [filamentPrice, setFilamentPrice] = useState<number>(120);
@@ -73,6 +98,18 @@ export default function App() {
   const [hourlyRate, setHourlyRate] = useState<number>(5);
   const [electricityKwhPrice, setElectricityKwhPrice] = useState<number>(0.85);
   const [printerPowerWatts, setPrinterPowerWatts] = useState<number>(150);
+  const [printerPrice, setPrinterPrice] = useState<number>(1500);
+  const [printerLifespan, setPrinterLifespan] = useState<number>(5000);
+  const [printerModel, setPrinterModel] = useState<string>('Personalizado');
+
+  const handlePrinterModelChange = (modelName: string) => {
+    setPrinterModel(modelName);
+    const preset = PRINTER_PRESETS.find(p => p.name === modelName);
+    if (preset) {
+      setPrinterPrice(preset.price);
+      setPrinterLifespan(preset.lifespan);
+    }
+  };
 
   // Shopee Calculator States
   const [activeTab, setActiveTab] = useState<'direct' | 'shopee'>('direct');
@@ -183,17 +220,19 @@ export default function App() {
   const materialCost = useMemo(() => (filamentPrice / 1000) * weight, [filamentPrice, weight]);
 
   const advancedCosts = useMemo(() => {
-    if (!useAdvancedCosts) return { total: 0, electricity: 0, labor: 0, totalHours: 0 };
+    if (!useAdvancedCosts) return { total: 0, electricity: 0, labor: 0, depreciation: 0, totalHours: 0 };
     const totalHours = printTimeHours + (printTimeMinutes / 60);
     const electricity = (printerPowerWatts / 1000) * totalHours * electricityKwhPrice;
     const labor = totalHours * hourlyRate;
+    const depreciation = printerLifespan > 0 ? (printerPrice / printerLifespan) * totalHours : 0;
     return {
-      total: electricity + labor,
+      total: electricity + labor + depreciation,
       electricity,
       labor,
+      depreciation,
       totalHours
     };
-  }, [useAdvancedCosts, printTimeHours, printTimeMinutes, hourlyRate, electricityKwhPrice, printerPowerWatts]);
+  }, [useAdvancedCosts, printTimeHours, printTimeMinutes, hourlyRate, electricityKwhPrice, printerPowerWatts, printerPrice, printerLifespan]);
 
   const totalProductionCost = useMemo(() => materialCost + advancedCosts.total, [materialCost, advancedCosts.total]);
 
@@ -223,6 +262,9 @@ export default function App() {
       hourlyRate,
       electricityKwhPrice,
       printerPowerWatts,
+      printerPrice,
+      printerLifespan,
+      printerModel,
       advancedTotalCost: advancedCosts.total
     };
     const newHistory = [newCalc, ...history].slice(0, 10);
@@ -249,6 +291,9 @@ export default function App() {
     setHourlyRate(item.hourlyRate || 5);
     setElectricityKwhPrice(item.electricityKwhPrice || 0.85);
     setPrinterPowerWatts(item.printerPowerWatts || 150);
+    setPrinterPrice(item.printerPrice || 1500);
+    setPrinterLifespan(item.printerLifespan || 5000);
+    setPrinterModel(item.printerModel || 'Personalizado');
     // Scroll to top to see the loaded values
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -657,6 +702,48 @@ export default function App() {
                                   <p className="text-[9px] text-slate-400 mt-1 italic">Média: 150W - 300W</p>
                                 </div>
                               </div>
+
+                              <div className="space-y-4 md:col-span-2 lg:col-span-1">
+                                <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                  <TrendingUp className="w-3 h-3" /> Depreciação
+                                </h3>
+                                <div>
+                                  <label className="block text-[10px] text-slate-500 mb-1 font-bold">Modelo da Impressora</label>
+                                  <select
+                                    value={printerModel}
+                                    onChange={(e) => handlePrinterModelChange(e.target.value)}
+                                    className="w-full px-4 py-2 rounded-xl border border-rose-100 focus:ring-2 focus:ring-rose-900 outline-none bg-white text-sm"
+                                  >
+                                    {PRINTER_PRESETS.map((p) => (
+                                      <option key={p.name} value={p.name}>{p.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">
+                                  <div>
+                                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">Preço Máquina ({currency})</label>
+                                    <div className="relative">
+                                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                      <input
+                                        type="number"
+                                        value={printerPrice}
+                                        onChange={(e) => setPrinterPrice(Number(e.target.value))}
+                                        className="w-full pl-8 pr-4 py-2 rounded-xl border border-rose-100 focus:ring-2 focus:ring-rose-900 outline-none"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">Vida Útil / Próxima Manutenção (Horas)</label>
+                                    <input
+                                      type="number"
+                                      value={printerLifespan}
+                                      onChange={(e) => setPrinterLifespan(Number(e.target.value))}
+                                      className="w-full px-4 py-2 rounded-xl border border-rose-100 focus:ring-2 focus:ring-rose-900 outline-none"
+                                    />
+                                  </div>
+                                </div>
+                                <p className="text-[9px] text-slate-400 italic">Custo para amortizar investimento ou manutenção preventiva</p>
+                              </div>
                             </div>
                           </motion.div>
                         )}
@@ -877,6 +964,10 @@ export default function App() {
                           <div className="flex justify-between text-yellow-600 font-medium">
                             <span>Eletricidade:</span>
                             <span className="font-mono">{currency} {advancedCosts.electricity.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-rose-600 font-medium">
+                            <span>Depreciação:</span>
+                            <span className="font-mono">{currency} {advancedCosts.depreciation.toFixed(2)}</span>
                           </div>
                         </>
                       )}
