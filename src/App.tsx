@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Calculator, Package, User, DollarSign, Weight, History, Trash2, Save, Percent, TrendingUp, Download, Globe, X, Plus, Minus, Divide, Equal, FileText, Settings, Copy, Share2, MessageCircle, ArrowUpRight, ShoppingBag, Truck, Tag, Megaphone, Info, Clock, Zap } from 'lucide-react';
+import { Calculator, Package, User, DollarSign, Weight, History, Trash2, Save, Percent, TrendingUp, Download, Globe, X, Plus, Minus, Divide, Equal, FileText, Settings, Copy, Share2, MessageCircle, ArrowUpRight, ShoppingBag, Truck, Tag, Megaphone, Info, Clock, Zap, BarChart3 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 interface Calculation {
   id: string;
@@ -26,6 +27,10 @@ interface Calculation {
   printerPrice?: number;
   printerLifespan?: number;
   printerModel?: string;
+  // Keychain specific fields
+  isKeychainMode?: boolean;
+  keychainRingPrice?: number;
+  keychainPurgeWeight?: number;
 }
 
 const PRINTER_PRESETS = [
@@ -102,6 +107,11 @@ export default function App() {
   const [printerLifespan, setPrinterLifespan] = useState<number>(5000);
   const [printerModel, setPrinterModel] = useState<string>('Personalizado');
 
+  // Keychain States
+  const [keychainRingPrice, setKeychainRingPrice] = useState<number>(0.50);
+  const [keychainPurgeWeight, setKeychainPurgeWeight] = useState<number>(0);
+  const [isKeychainMode, setIsKeychainMode] = useState<boolean>(false);
+
   const handlePrinterModelChange = (modelName: string) => {
     setPrinterModel(modelName);
     const preset = PRINTER_PRESETS.find(p => p.name === modelName);
@@ -112,12 +122,20 @@ export default function App() {
   };
 
   // Shopee Calculator States
-  const [activeTab, setActiveTab] = useState<'direct' | 'shopee'>('direct');
+  const [activeTab, setActiveTab] = useState<'direct' | 'shopee' | 'keychain' | 'mercadolivre'>('direct');
   const [shopeeShipping, setShopeeShipping] = useState<number>(0);
   const [shopeeAds, setShopeeAds] = useState<number>(0);
   const [shopeeDiscount, setShopeeDiscount] = useState<number>(0);
   const [shopeeTaxRate, setShopeeTaxRate] = useState<number>(4);
   const [shopeeManualPrice, setShopeeManualPrice] = useState<number>(0);
+
+  // Mercado Livre States
+  const [mlListingType, setMlListingType] = useState<'classico' | 'premium'>('classico');
+  const [mlCommissionRate, setMlCommissionRate] = useState<number>(11.5);
+  const [mlShippingCost, setMlShippingCost] = useState<number>(0);
+  const [mlTaxRate, setMlTaxRate] = useState<number>(4);
+  const [mlManualPrice, setMlManualPrice] = useState<number>(0);
+  const [showMlInfo, setShowMlInfo] = useState(false);
 
   const handleCalcInput = (val: string) => {
     if (val === 'C') {
@@ -219,6 +237,16 @@ export default function App() {
 
   const materialCost = useMemo(() => (filamentPrice / 1000) * weight, [filamentPrice, weight]);
 
+  const keychainPurgeCost = useMemo(() => {
+    if (!isKeychainMode) return 0;
+    return (filamentPrice / 1000) * keychainPurgeWeight;
+  }, [isKeychainMode, filamentPrice, keychainPurgeWeight]);
+
+  const keychainExtrasCost = useMemo(() => {
+    if (!isKeychainMode) return 0;
+    return keychainRingPrice;
+  }, [isKeychainMode, keychainRingPrice]);
+
   const advancedCosts = useMemo(() => {
     if (!useAdvancedCosts) return { total: 0, electricity: 0, labor: 0, depreciation: 0, totalHours: 0 };
     const totalHours = printTimeHours + (printTimeMinutes / 60);
@@ -234,7 +262,7 @@ export default function App() {
     };
   }, [useAdvancedCosts, printTimeHours, printTimeMinutes, hourlyRate, electricityKwhPrice, printerPowerWatts, printerPrice, printerLifespan]);
 
-  const totalProductionCost = useMemo(() => materialCost + advancedCosts.total, [materialCost, advancedCosts.total]);
+  const totalProductionCost = useMemo(() => materialCost + keychainPurgeCost + keychainExtrasCost + advancedCosts.total, [materialCost, keychainPurgeCost, keychainExtrasCost, advancedCosts.total]);
 
   const retailPrice = useMemo(() => {
     return totalProductionCost * (1 + retailMargin / 100);
@@ -265,6 +293,9 @@ export default function App() {
       printerPrice,
       printerLifespan,
       printerModel,
+      isKeychainMode,
+      keychainRingPrice,
+      keychainPurgeWeight,
       advancedTotalCost: advancedCosts.total
     };
     const newHistory = [newCalc, ...history].slice(0, 10);
@@ -294,6 +325,14 @@ export default function App() {
     setPrinterPrice(item.printerPrice || 1500);
     setPrinterLifespan(item.printerLifespan || 5000);
     setPrinterModel(item.printerModel || 'Personalizado');
+    setIsKeychainMode(item.isKeychainMode || false);
+    if (item.isKeychainMode) {
+      setActiveTab('keychain');
+      setKeychainRingPrice(item.keychainRingPrice || 0);
+      setKeychainPurgeWeight(item.keychainPurgeWeight || 0);
+    } else {
+      setActiveTab('direct');
+    }
     // Scroll to top to see the loaded values
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -325,11 +364,6 @@ export default function App() {
     const margin = price > 0 ? (netProfit / price) * 100 : 0;
 
     // Calculate suggested price to maintain the same profit as retailPrice
-    // Target Profit = retailPrice - totalProductionCost
-    // Net Profit = Price - MaterialTotal - (Price * CommRate + FixedFee) - Tax - Other
-    // Target Profit = Price * (1 - CommRate - TaxRate) - MaterialTotal - FixedFee - Other
-    // Price = (Target Profit + MaterialTotal + FixedFee + Other) / (1 - CommRate - TaxRate)
-    
     const targetProfit = retailPrice - totalProductionCost;
     const otherCosts = shopeeShipping + shopeeAds + shopeeDiscount;
     const suggestedPrice = (targetProfit + totalProductionCost + fixedFee + otherCosts) / (1 - commissionRate - (shopeeTaxRate / 100));
@@ -347,8 +381,50 @@ export default function App() {
     };
   }, [shopeeManualPrice, retailPrice, totalProductionCost, shopeeShipping, shopeeAds, shopeeDiscount, shopeeTaxRate]);
 
+  const mlResults = useMemo(() => {
+    const price = mlManualPrice || retailPrice;
+    
+    // ML fixed fee: R$ 6,00 if price < R$ 79,00
+    const fixedFee = price < 79 ? 6 : 0;
+    const commission = (price * (mlCommissionRate / 100)) + fixedFee;
+    const tax = price * (mlTaxRate / 100);
+    
+    const totalFees = commission + tax + mlShippingCost;
+    const netProfit = price - totalProductionCost - totalFees;
+    const margin = price > 0 ? (netProfit / price) * 100 : 0;
+
+    // Suggested price calculation for ML
+    // Target Profit = retailPrice - totalProductionCost
+    // Net Profit = Price - MaterialTotal - (Price * CommRate + FixedFee) - Tax - Shipping
+    // Target Profit = Price * (1 - CommRate - TaxRate) - MaterialTotal - FixedFee - Shipping
+    // Price = (Target Profit + totalProductionCost + FixedFee + Shipping) / (1 - CommRate - TaxRate)
+    
+    const targetProfit = retailPrice - totalProductionCost;
+    const suggestedPrice = (targetProfit + totalProductionCost + fixedFee + mlShippingCost) / (1 - (mlCommissionRate / 100) - (mlTaxRate / 100));
+
+    return {
+      price,
+      commission,
+      tax,
+      totalFees,
+      netProfit,
+      margin,
+      fixedFee,
+      suggestedPrice
+    };
+  }, [mlManualPrice, retailPrice, totalProductionCost, mlCommissionRate, mlTaxRate, mlShippingCost]);
+
   const suggestShopeePrice = () => {
     setShopeeManualPrice(Number(shopeeResults.suggestedPrice.toFixed(2)));
+  };
+
+  const suggestMlPrice = () => {
+    setMlManualPrice(Number(mlResults.suggestedPrice.toFixed(2)));
+  };
+
+  const handleMlTypeChange = (type: 'classico' | 'premium') => {
+    setMlListingType(type);
+    setMlCommissionRate(type === 'classico' ? 11.5 : 16.5);
   };
 
   const saveBranding = (name: string, logo: string) => {
@@ -417,6 +493,40 @@ export default function App() {
     const encodedText = encodeURIComponent(textQuote);
     window.open(`https://wa.me/?text=${encodedText}`, '_blank');
   };
+
+  const chartData = useMemo(() => {
+    if (activeTab === 'shopee') {
+      return [
+        { name: 'Produção', valor: totalProductionCost, color: '#64748b' },
+        { name: 'Venda', valor: shopeeResults.price, color: '#f97316' },
+        { name: 'Lucro L.', valor: shopeeResults.netProfit, color: '#10b981' }
+      ];
+    }
+    if (activeTab === 'mercadolivre') {
+      return [
+        { name: 'Produção', valor: totalProductionCost, color: '#64748b' },
+        { name: 'Venda', valor: mlResults.price, color: '#facc15' },
+        { name: 'Lucro L.', valor: mlResults.netProfit, color: '#10b981' }
+      ];
+    }
+    return [
+      {
+        name: 'Produção',
+        valor: totalProductionCost,
+        color: '#64748b'
+      },
+      {
+        name: 'Varejo',
+        valor: retailPrice,
+        color: '#881337'
+      },
+      {
+        name: 'Atacado',
+        valor: wholesalePrice,
+        color: '#f43f5e'
+      }
+    ];
+  }, [activeTab, totalProductionCost, retailPrice, wholesalePrice, shopeeResults, mlResults]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans p-4 md:p-8">
@@ -488,7 +598,10 @@ export default function App() {
 
         <div className="flex items-center gap-2 mb-6 bg-slate-100 p-1 rounded-2xl w-fit">
           <button
-            onClick={() => setActiveTab('direct')}
+            onClick={() => {
+              setActiveTab('direct');
+              setIsKeychainMode(false);
+            }}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'direct' 
                 ? 'bg-white text-rose-900 shadow-md' 
@@ -507,7 +620,32 @@ export default function App() {
             }`}
           >
             <ShoppingBag className="w-4 h-4" />
-            Calculadora Shopee
+            Shopee
+          </button>
+          <button
+            onClick={() => setActiveTab('mercadolivre')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'mercadolivre' 
+                ? 'bg-white text-rose-900 shadow-md' 
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Globe className="w-4 h-4" />
+            Mercado Livre
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('keychain');
+              setIsKeychainMode(true);
+            }}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'keychain' 
+                ? 'bg-white text-rose-900 shadow-md' 
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Tag className="w-4 h-4" />
+            Chaveiro 3D
           </button>
         </div>
 
@@ -644,7 +782,10 @@ export default function App() {
                                 </h3>
                                 <div className="grid grid-cols-2 gap-4">
                                   <div>
-                                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">Horas</label>
+                                    <label className="block text-[10px] text-slate-500 mb-1 font-bold flex items-center gap-1">
+                                      Horas
+                                      <Info className="w-2.5 h-2.5 text-slate-400 cursor-help" title="Tempo total de horas de impressão." />
+                                    </label>
                                     <input
                                       type="number"
                                       value={printTimeHours}
@@ -653,7 +794,10 @@ export default function App() {
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">Minutos</label>
+                                    <label className="block text-[10px] text-slate-500 mb-1 font-bold flex items-center gap-1">
+                                      Minutos
+                                      <Info className="w-2.5 h-2.5 text-slate-400 cursor-help" title="Minutos adicionais ao tempo de impressão." />
+                                    </label>
                                     <input
                                       type="number"
                                       value={printTimeMinutes}
@@ -663,7 +807,10 @@ export default function App() {
                                   </div>
                                 </div>
                                 <div>
-                                  <label className="block text-[10px] text-slate-500 mb-1 font-bold">Custo Hora ({currency})</label>
+                                  <label className="block text-[10px] text-slate-500 mb-1 font-bold flex items-center gap-1">
+                                    Custo Hora ({currency})
+                                    <Info className="w-2.5 h-2.5 text-slate-400 cursor-help" title="Valor cobrado por hora de uso da máquina (mão de obra + lucro operacional)." />
+                                  </label>
                                   <div className="relative">
                                     <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                                     <input
@@ -682,7 +829,10 @@ export default function App() {
                                   <Zap className="w-3 h-3" /> Energia Elétrica
                                 </h3>
                                 <div>
-                                  <label className="block text-[10px] text-slate-500 mb-1 font-bold">Preço kWh ({currency})</label>
+                                  <label className="block text-[10px] text-slate-500 mb-1 font-bold flex items-center gap-1">
+                                    Preço kWh ({currency})
+                                    <Info className="w-2.5 h-2.5 text-slate-400 cursor-help" title="Custo da energia elétrica por kilowatt-hora (verifique sua conta de luz)." />
+                                  </label>
                                   <input
                                     type="number"
                                     value={electricityKwhPrice}
@@ -692,7 +842,10 @@ export default function App() {
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-[10px] text-slate-500 mb-1 font-bold">Consumo Impressora (Watts)</label>
+                                  <label className="block text-[10px] text-slate-500 mb-1 font-bold flex items-center gap-1">
+                                    Consumo Impressora (Watts)
+                                    <Info className="w-2.5 h-2.5 text-slate-400 cursor-help" title="Potência média consumida pela impressora durante a operação." />
+                                  </label>
                                   <input
                                     type="number"
                                     value={printerPowerWatts}
@@ -721,7 +874,10 @@ export default function App() {
                                 </div>
                                 <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">
                                   <div>
-                                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">Preço Máquina ({currency})</label>
+                                    <label className="block text-[10px] text-slate-500 mb-1 font-bold flex items-center gap-1">
+                                      Preço Máquina ({currency})
+                                      <Info className="w-2.5 h-2.5 text-slate-400 cursor-help" title="Valor pago pela impressora para cálculo de amortização." />
+                                    </label>
                                     <div className="relative">
                                       <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                                       <input
@@ -733,7 +889,10 @@ export default function App() {
                                     </div>
                                   </div>
                                   <div>
-                                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">Vida Útil / Próxima Manutenção (Horas)</label>
+                                    <label className="block text-[10px] text-slate-500 mb-1 font-bold flex items-center gap-1">
+                                      Vida Útil / Próxima Manutenção (Horas)
+                                      <Info className="w-2.5 h-2.5 text-slate-400 cursor-help" title="Horas de trabalho estimadas até a próxima grande manutenção." />
+                                    </label>
                                     <input
                                       type="number"
                                       value={printerLifespan}
@@ -784,6 +943,418 @@ export default function App() {
                         <MessageCircle className="w-5 h-5" />
                         Enviar por Texto
                       </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : activeTab === 'keychain' ? (
+                <motion.div 
+                  key="keychain-calc"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200"
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-semibold flex items-center gap-2">
+                      <Tag className="w-5 h-5 text-rose-900" />
+                      Especialista em Chaveiros 3D
+                    </h2>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Nome do Chaveiro</label>
+                      <input
+                        type="text"
+                        value={projectName}
+                        onChange={(e) => setProjectName(e.target.value)}
+                        placeholder="Ex: Chaveiro Logo Empresa"
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-900 focus:border-transparent outline-none transition-all"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Material Section */}
+                      <div className="space-y-4 p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                          <Weight className="w-3 h-3" /> Custos de Insumo
+                        </h3>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Preço Filamento ({currency}/kg)</label>
+                            <input
+                              type="number"
+                              value={filamentPrice}
+                              onChange={(e) => setFilamentPrice(Number(e.target.value))}
+                              className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs text-slate-500 mb-1">Peso Peça (g)</label>
+                              <input
+                                type="number"
+                                value={weight}
+                                onChange={(e) => setWeight(Number(e.target.value))}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-slate-500 mb-1 flex items-center gap-1">
+                                Purga (g) <span className="text-[9px] text-rose-500 italic opacity-70">Colorido</span>
+                                <Info className="w-3 h-3 text-slate-400 cursor-help" title="Peso do material desperdiçado durante a troca de cores (prime tower/purge)." />
+                              </label>
+                              <input
+                                type="number"
+                                value={keychainPurgeWeight}
+                                onChange={(e) => setKeychainPurgeWeight(Number(e.target.value))}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1 flex items-center gap-1">
+                              Preço unitário Argola ({currency})
+                              <Info className="w-3 h-3 text-slate-400 cursor-help" title="Preço de custo de uma argola de chaveiro completa." />
+                            </label>
+                            <div className="relative">
+                              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                              <input
+                                type="number"
+                                value={keychainRingPrice}
+                                step="0.01"
+                                onChange={(e) => setKeychainRingPrice(Number(e.target.value))}
+                                className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Margins Section */}
+                      <div className="space-y-4 p-5 bg-rose-50 rounded-2xl border border-rose-100">
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-rose-900 flex items-center gap-2">
+                          <Percent className="w-3 h-3" /> Margens de Lucro (%)
+                        </h3>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Margem Varejo (%)</label>
+                            <input
+                              type="number"
+                              value={retailMargin}
+                              onChange={(e) => setRetailMargin(Number(e.target.value))}
+                              className="w-full px-4 py-2 rounded-lg border border-rose-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Margem Atacado (%)</label>
+                            <input
+                              type="number"
+                              value={wholesaleMargin}
+                              onChange={(e) => setWholesaleMargin(Number(e.target.value))}
+                              className="w-full px-4 py-2 rounded-lg border border-rose-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Advanced Costs Segment */}
+                    <div className="md:col-span-2">
+                      <div 
+                        onClick={() => setUseAdvancedCosts(!useAdvancedCosts)}
+                        className="flex items-center justify-between p-4 bg-slate-900 text-white rounded-2xl shadow-lg cursor-pointer hover:bg-slate-800 transition-all mb-4"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${useAdvancedCosts ? 'bg-rose-500' : 'bg-slate-600'}`}>
+                            <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${useAdvancedCosts ? 'translate-x-4' : 'translate-x-0'}`} />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-bold">Ativar Depreciação e Tempo</h3>
+                          </div>
+                        </div>
+                        <Clock className={`w-6 h-6 ${useAdvancedCosts ? 'text-rose-400' : 'opacity-30'}`} />
+                      </div>
+
+                      {useAdvancedCosts && (
+                        <motion.div 
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="overflow-hidden mb-6"
+                        >
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-rose-50/30 border border-rose-100/50 rounded-3xl">
+                            <div className="space-y-4">
+                              <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                <Clock className="w-3 h-3" /> Tempo e Mão de Obra
+                              </h3>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <label className="block text-[10px] text-slate-500 mb-1 font-bold flex items-center gap-1">
+                                    Horas
+                                    <Info className="w-2.5 h-2.5 text-slate-400 cursor-help" title="Tempo total de horas de impressão." />
+                                  </label>
+                                  <input
+                                    type="number"
+                                    value={printTimeHours}
+                                    onChange={(e) => setPrintTimeHours(Number(e.target.value))}
+                                    className="w-full px-4 py-2 rounded-xl border border-rose-100 focus:ring-2 focus:ring-rose-900 outline-none text-sm"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] text-slate-500 mb-1 font-bold flex items-center gap-1">
+                                    Minutos
+                                    <Info className="w-2.5 h-2.5 text-slate-400 cursor-help" title="Minutos adicionais ao tempo de impressão." />
+                                  </label>
+                                  <input
+                                    type="number"
+                                    value={printTimeMinutes}
+                                    onChange={(e) => setPrintTimeMinutes(Number(e.target.value))}
+                                    className="w-full px-4 py-2 rounded-xl border border-rose-100 focus:ring-2 focus:ring-rose-900 outline-none text-sm"
+                                  />
+                                </div>
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-slate-500 mb-1 font-bold flex items-center gap-1">
+                                  Custo Hora ({currency})
+                                  <Info className="w-2.5 h-2.5 text-slate-400 cursor-help" title="Valor cobrado por hora de uso da máquina (mão de obra + lucro operacional)." />
+                                </label>
+                                <div className="relative">
+                                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                  <input
+                                    type="number"
+                                    value={hourlyRate}
+                                    onChange={(e) => setHourlyRate(Number(e.target.value))}
+                                    className="w-full pl-8 pr-4 py-2 rounded-xl border border-rose-100 focus:ring-2 focus:ring-rose-900 outline-none text-sm"
+                                  />
+                                </div>
+                                <p className="text-[9px] text-slate-400 mt-1 italic">Mão de obra e lucro operacional</p>
+                              </div>
+                            </div>
+
+                            <div className="space-y-4">
+                              <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                <Zap className="w-3 h-3" /> Energia Elétrica
+                              </h3>
+                              <div>
+                                <label className="block text-[10px] text-slate-500 mb-1 font-bold flex items-center gap-1">
+                                  Preço kWh ({currency})
+                                  <Info className="w-2.5 h-2.5 text-slate-400 cursor-help" title="Custo da energia elétrica por kilowatt-hora (verifique sua conta de luz)." />
+                                </label>
+                                <input
+                                  type="number"
+                                  value={electricityKwhPrice}
+                                  step="0.01"
+                                  onChange={(e) => setElectricityKwhPrice(Number(e.target.value))}
+                                  className="w-full px-4 py-2 rounded-xl border border-rose-100 focus:ring-2 focus:ring-rose-900 outline-none text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-slate-500 mb-1 font-bold flex items-center gap-1">
+                                  Consumo Impressora (Watts)
+                                  <Info className="w-2.5 h-2.5 text-slate-400 cursor-help" title="Potência média consumida pela impressora durante a operação." />
+                                </label>
+                                <input
+                                  type="number"
+                                  value={printerPowerWatts}
+                                  onChange={(e) => setPrinterPowerWatts(Number(e.target.value))}
+                                  className="w-full px-4 py-2 rounded-xl border border-rose-100 focus:ring-2 focus:ring-rose-900 outline-none text-sm"
+                                />
+                                <p className="text-[9px] text-slate-400 mt-1 italic">Média: 150W - 300W</p>
+                              </div>
+                            </div>
+
+                            <div className="space-y-4 md:col-span-2">
+                              <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
+                                <TrendingUp className="w-3 h-3" /> Máquina e Depreciação
+                              </h3>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <label className="block text-[10px] text-slate-500 mb-1 font-bold">Modelo</label>
+                                  <select
+                                    value={printerModel}
+                                    onChange={(e) => handlePrinterModelChange(e.target.value)}
+                                    className="w-full px-4 py-2 rounded-xl border border-rose-100 focus:ring-2 focus:ring-rose-900 outline-none bg-white text-sm"
+                                  >
+                                    {PRINTER_PRESETS.map((p) => (
+                                      <option key={p.name} value={p.name}>{p.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-[10px] text-slate-500 mb-1 font-bold flex items-center gap-1">
+                                      Preço Máquina
+                                      <Info className="w-2.5 h-2.5 text-slate-400 cursor-help" title="Valor pago pela impressora para cálculo de amortização." />
+                                    </label>
+                                    <input
+                                      type="number"
+                                      value={printerPrice}
+                                      onChange={(e) => setPrinterPrice(Number(e.target.value))}
+                                      className="w-full px-4 py-2 rounded-xl border border-rose-100 focus:ring-2 focus:ring-rose-900 outline-none text-sm"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] text-slate-500 mb-1 font-bold flex items-center gap-1">
+                                      Vida Útil (h)
+                                      <Info className="w-2.5 h-2.5 text-slate-400 cursor-help" title="Horas de trabalho estimadas até a próxima grande manutenção." />
+                                    </label>
+                                    <input
+                                      type="number"
+                                      value={printerLifespan}
+                                      onChange={(e) => setPrinterLifespan(Number(e.target.value))}
+                                      className="w-full px-4 py-2 rounded-xl border border-rose-100 focus:ring-2 focus:ring-rose-900 outline-none text-sm"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <button
+                        onClick={saveCalculation}
+                        className="flex-1 py-4 bg-slate-900 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-slate-800 transition-colors shadow-lg"
+                      >
+                        <Save className="w-5 h-5" />
+                        Salvar Chaveiro
+                      </button>
+                      <button
+                        onClick={generatePDF}
+                        className="flex-1 py-4 bg-rose-900 text-white rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-rose-950 transition-colors shadow-lg"
+                      >
+                        <FileText className="w-5 h-5" />
+                        Gerar Orçamento
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : activeTab === 'mercadolivre' ? (
+                <motion.div 
+                  key="ml-calc"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200"
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-semibold flex items-center gap-2">
+                      <Globe className="w-5 h-5 text-rose-900" />
+                      Calculadora Mercado Livre
+                    </h2>
+                    <button 
+                      onClick={() => setShowMlInfo(true)}
+                      className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200 transition-colors"
+                    >
+                      <Info className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-rose-100 rounded-xl text-rose-900">
+                          <TrendingUp className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-rose-900 uppercase tracking-wider">Preço Sugerido (ML)</p>
+                          <p className="text-lg font-bold text-slate-900">
+                            {currency} {mlResults.suggestedPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={suggestMlPrice}
+                        className="px-4 py-2 bg-rose-900 text-white rounded-lg text-sm font-bold hover:bg-rose-950 transition-all shadow-sm"
+                      >
+                        Usar Preço Sugerido
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-6">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-2">Preço de Venda ML ({currency})</label>
+                          <div className="relative">
+                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-900" />
+                            <input
+                              type="number"
+                              value={mlManualPrice || ''}
+                              onChange={(e) => setMlManualPrice(Number(e.target.value))}
+                              placeholder={`Base: ${retailPrice.toFixed(2)}`}
+                              className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none font-bold text-lg"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                          <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Tipo de Anúncio</h3>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => handleMlTypeChange('classico')}
+                              className={`py-2 rounded-xl text-xs font-bold transition-all border ${
+                                mlListingType === 'classico' 
+                                  ? 'bg-rose-900 text-white border-rose-950' 
+                                  : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                              }`}
+                            >
+                              Clássico
+                            </button>
+                            <button
+                              onClick={() => handleMlTypeChange('premium')}
+                              className={`py-2 rounded-xl text-xs font-bold transition-all border ${
+                                mlListingType === 'premium' 
+                                  ? 'bg-rose-900 text-white border-rose-950' 
+                                  : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                              }`}
+                            >
+                              Premium
+                            </button>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] text-slate-500 mb-1 font-bold">Comissão Manual (%)</label>
+                            <input
+                              type="number"
+                              value={mlCommissionRate}
+                              onChange={(e) => setMlCommissionRate(Number(e.target.value))}
+                              className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none text-sm"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-6">
+                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                          <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                            <Truck className="w-3 h-3" /> Logística e Impostos
+                          </h3>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Custo do Frete</label>
+                            <div className="relative">
+                              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                              <input
+                                type="number"
+                                value={mlShippingCost}
+                                onChange={(e) => setMlShippingCost(Number(e.target.value))}
+                                className="w-full pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                              />
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-1 italic">Vendedores com reputação pagam parte do frete grátis.</p>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Imposto (%)</label>
+                            <input
+                              type="number"
+                              value={mlTaxRate}
+                              onChange={(e) => setMlTaxRate(Number(e.target.value))}
+                              className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -929,92 +1500,255 @@ export default function App() {
 
             {/* Results Grid */}
             <AnimatePresence mode="wait">
-              {activeTab === 'direct' ? (
+              {activeTab === 'direct' || activeTab === 'keychain' ? (
+                <div className="space-y-6">
+                  <motion.div 
+                    key="direct-results"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="grid grid-cols-1 md:grid-cols-3 gap-6"
+                  >
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <Weight className="w-6 h-6 text-slate-400" />
+                        <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Custo de Produção</span>
+                      </div>
+                      <div className="text-sm text-slate-500 mb-1">Custo Total (Material + Extras)</div>
+                      <div className="text-4xl font-bold tracking-tight text-slate-900">
+                        {currency} {totalProductionCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-1 text-sm text-slate-500">
+                        <div className="flex justify-between">
+                          <span>Material Base ({weight}g):</span>
+                          <span className="font-mono">{currency} {materialCost.toFixed(2)}</span>
+                        </div>
+                        {isKeychainMode && (
+                          <>
+                            {keychainPurgeCost > 0 && (
+                              <div className="flex justify-between text-slate-400">
+                                <span>Purga (Material):</span>
+                                <span className="font-mono">{currency} {keychainPurgeCost.toFixed(2)}</span>
+                              </div>
+                            )}
+                            {keychainExtrasCost > 0 && (
+                              <div className="flex justify-between text-slate-400">
+                                <span>Argola/Insumos:</span>
+                                <span className="font-mono">{currency} {keychainExtrasCost.toFixed(2)}</span>
+                              </div>
+                            )}
+                          </>
+                        )}
+                        {useAdvancedCosts && (
+                          <>
+                            <div className="flex justify-between text-blue-600 font-medium">
+                              <span>Tempo ({advancedCosts.totalHours.toFixed(1)}h):</span>
+                              <span className="font-mono">{currency} {advancedCosts.labor.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-yellow-600 font-medium">
+                              <span>Eletricidade:</span>
+                              <span className="font-mono">{currency} {advancedCosts.electricity.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-rose-600 font-medium">
+                              <span>Depreciação:</span>
+                              <span className="font-mono">{currency} {advancedCosts.depreciation.toFixed(2)}</span>
+                            </div>
+                          </>
+                        )}
+                        <div className="flex justify-between border-t border-slate-50 pt-1 mt-1 font-bold text-slate-700">
+                          <span>Total Gasto:</span>
+                          <span>{currency} {totalProductionCost.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </motion.div>
+
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="bg-rose-900 rounded-3xl p-6 text-white shadow-xl shadow-rose-100"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <User className="w-6 h-6 opacity-80" />
+                        <span className="text-xs font-bold uppercase tracking-widest opacity-80">Cliente Final</span>
+                      </div>
+                      <div className="text-sm opacity-80 mb-1">Preço com {retailMargin}% de Margem</div>
+                      <div className="text-4xl font-bold tracking-tight">
+                        {currency} {retailPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-white/20 flex justify-between text-sm">
+                        <span>Lucro: {currency} {(retailPrice - totalProductionCost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="opacity-60">Multiplicador: {(retailPrice / totalProductionCost).toFixed(1)}x</span>
+                      </div>
+                    </motion.div>
+
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <Package className="w-6 h-6 text-rose-900" />
+                        <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Atacado</span>
+                      </div>
+                      <div className="text-sm text-slate-500 mb-1">Preço com {wholesaleMargin}% de Margem</div>
+                      <div className="text-4xl font-bold tracking-tight text-slate-900">
+                        {currency} {wholesalePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between text-sm text-slate-500">
+                        <span>Lucro: {currency} {(wholesalePrice - totalProductionCost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="opacity-60">Multiplicador: {(wholesalePrice / totalProductionCost).toFixed(1)}x</span>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200"
+                  >
+                    <div className="flex items-center gap-2 mb-6">
+                      <BarChart3 className="w-5 h-5 text-rose-900" />
+                      <h3 className="font-bold text-slate-800">Distribuição de Valores ({currency})</h3>
+                    </div>
+                    <div className="h-[300px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis 
+                            dataKey="name" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fill: '#64748b', fontSize: 12, fontWeight: 500 }}
+                            dy={10}
+                          />
+                          <YAxis 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fill: '#64748b', fontSize: 12 }}
+                            tickFormatter={(value) => `${currency}${value}`}
+                          />
+                          <Tooltip 
+                            cursor={{ fill: '#f8fafc' }}
+                            contentStyle={{ 
+                              borderRadius: '16px', 
+                              border: 'none', 
+                              boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                              fontSize: '12px'
+                            }}
+                            formatter={(value: any) => [`${currency} ${value.toFixed(2)}`, 'Valor']}
+                          />
+                          <Bar dataKey="valor" radius={[8, 8, 0, 0]} barSize={60}>
+                            {chartData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                       {chartData.map((item) => (
+                         <div key={item.name} className="flex flex-col items-center p-2 rounded-xl bg-slate-50 border border-slate-100">
+                           <span className="text-[10px] uppercase font-bold text-slate-400">{item.name}</span>
+                           <span className="text-xs font-bold text-slate-700">{currency} {item.valor.toFixed(2)}</span>
+                         </div>
+                       ))}
+                    </div>
+                  </motion.div>
+                </div>
+              ) : activeTab === 'mercadolivre' ? (
                 <motion.div 
-                  key="direct-results"
+                  key="ml-results"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="grid grid-cols-1 md:grid-cols-3 gap-6"
+                  className="grid grid-cols-1 md:grid-cols-2 gap-6"
                 >
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200"
+                    className="bg-white rounded-3xl p-8 shadow-sm border border-slate-200"
                   >
-                    <div className="flex items-center justify-between mb-4">
-                      <Weight className="w-6 h-6 text-slate-400" />
-                      <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Custo de Produção</span>
-                    </div>
-                    <div className="text-sm text-slate-500 mb-1">Custo Total (Material + Extras)</div>
-                    <div className="text-4xl font-bold tracking-tight text-slate-900">
-                      {currency} {totalProductionCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-1 text-sm text-slate-500">
-                      <div className="flex justify-between">
-                        <span>Material ({weight}g):</span>
-                        <span className="font-mono">{currency} {materialCost.toFixed(2)}</span>
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="p-3 bg-yellow-400 rounded-2xl">
+                        <Globe className="w-6 h-6 text-slate-900" />
                       </div>
-                      {useAdvancedCosts && (
-                        <>
-                          <div className="flex justify-between text-blue-600 font-medium">
-                            <span>Tempo ({advancedCosts.totalHours.toFixed(1)}h):</span>
-                            <span className="font-mono">{currency} {advancedCosts.labor.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between text-yellow-600 font-medium">
-                            <span>Eletricidade:</span>
-                            <span className="font-mono">{currency} {advancedCosts.electricity.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between text-rose-600 font-medium">
-                            <span>Depreciação:</span>
-                            <span className="font-mono">{currency} {advancedCosts.depreciation.toFixed(2)}</span>
-                          </div>
-                        </>
+                      <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Resumo Mercado Livre</span>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-end">
+                        <div>
+                          <p className="text-sm text-slate-500">Preço de Venda</p>
+                          <p className="text-3xl font-bold">{currency} {mlResults.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-slate-500">Lucro Líquido</p>
+                          <p className="text-3xl font-bold text-emerald-600">{currency} {mlResults.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        </div>
+                      </div>
+
+                      <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                        <div 
+                          className="bg-emerald-500 h-full transition-all duration-500" 
+                          style={{ width: `${Math.max(0, Math.min(100, mlResults.margin))}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs font-bold">
+                        <span className="text-slate-400 uppercase">Margem Líquida</span>
+                        <span className="text-emerald-600">{mlResults.margin.toFixed(1)}%</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-8 pt-6 border-t border-slate-100 space-y-3">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-500">Custo de Produção</span>
+                        <span className="font-bold text-slate-700">{currency} {totalProductionCost.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-500">Comissão ML ({mlListingType})</span>
+                        <span className="font-bold text-rose-600">-{currency} {mlResults.commission.toFixed(2)}</span>
+                      </div>
+                      {mlResults.fixedFee > 0 && (
+                        <div className="flex justify-between text-[10px] text-rose-500 italic -mt-2">
+                          <span>* Inclui taxa fixa de R$ 6,00 (Preço &lt; R$ 79)</span>
+                        </div>
                       )}
-                      <div className="flex justify-between border-t border-slate-50 pt-1 mt-1 font-bold text-slate-700">
-                        <span>Total Gasto:</span>
-                        <span>{currency} {totalProductionCost.toFixed(2)}</span>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-500">Impostos ({mlTaxRate}%)</span>
+                        <span className="font-bold text-rose-600">-{currency} {mlResults.tax.toFixed(2)}</span>
+                      </div>
+                      {mlShippingCost > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-slate-500">Frete por sua conta</span>
+                          <span className="font-bold text-rose-600">-{currency} {mlShippingCost.toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+
+                  <div className="bg-slate-900 rounded-3xl p-8 text-white flex flex-col justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold mb-4">Análise de Lucratividade</h3>
+                      <p className="text-slate-400 text-sm leading-relaxed">
+                        Ao vender no Mercado Livre, você está pagando <span className="text-white font-bold">{((mlResults.totalFees / mlResults.price) * 100).toFixed(1)}%</span> do valor total em taxas e custos de plataforma.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mt-8">
+                      <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+                        <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Recebimento</p>
+                        <p className="text-xl font-bold">{currency} {(mlResults.price - mlResults.totalFees).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                      </div>
+                      <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
+                        <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">ROI (Retorno)</p>
+                        <p className="text-xl font-bold">{((mlResults.netProfit / totalProductionCost) * 100).toFixed(0)}%</p>
                       </div>
                     </div>
-                  </motion.div>
-
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-rose-900 rounded-3xl p-6 text-white shadow-xl shadow-rose-100"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <User className="w-6 h-6 opacity-80" />
-                      <span className="text-xs font-bold uppercase tracking-widest opacity-80">Cliente Final</span>
-                    </div>
-                    <div className="text-sm opacity-80 mb-1">Preço com {retailMargin}% de Margem</div>
-                    <div className="text-4xl font-bold tracking-tight">
-                      {currency} {retailPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-white/20 flex justify-between text-sm">
-                      <span>Lucro: {currency} {(retailPrice - totalProductionCost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                      <span className="opacity-60">Multiplicador: {(retailPrice / totalProductionCost).toFixed(1)}x</span>
-                    </div>
-                  </motion.div>
-
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <Package className="w-6 h-6 text-rose-900" />
-                      <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Atacado</span>
-                    </div>
-                    <div className="text-sm text-slate-500 mb-1">Preço com {wholesaleMargin}% de Margem</div>
-                    <div className="text-4xl font-bold tracking-tight text-slate-900">
-                      {currency} {wholesalePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between text-sm text-slate-500">
-                      <span>Lucro: {currency} {(wholesalePrice - totalProductionCost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                      <span className="opacity-60">Multiplicador: {(wholesalePrice / totalProductionCost).toFixed(1)}x</span>
-                    </div>
-                  </motion.div>
+                  </div>
                 </motion.div>
               ) : (
                 <motion.div 
@@ -1267,9 +2001,9 @@ export default function App() {
           </motion.button>
         </div>
 
-        {/* Shopee Info Popup */}
+        {/* Mercado Livre Info Popup */}
         <AnimatePresence>
-          {showShopeeInfo && (
+          {showMlInfo && (
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[110]">
               <motion.div
                 initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -1277,14 +2011,14 @@ export default function App() {
                 exit={{ opacity: 0, scale: 0.9, y: 20 }}
                 className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden"
               >
-                <div className="bg-rose-900 p-6 text-white flex items-center justify-between">
+                <div className="bg-yellow-400 p-6 text-slate-900 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Info className="w-6 h-6" />
-                    <h2 className="text-xl font-bold">Entendendo as Taxas Shopee</h2>
+                    <h2 className="text-xl font-bold">Taxas do Mercado Livre</h2>
                   </div>
                   <button 
-                    onClick={() => setShowShopeeInfo(false)}
-                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                    onClick={() => setShowMlInfo(false)}
+                    className="p-2 hover:bg-black/10 rounded-full transition-colors"
                   >
                     <X className="w-6 h-6" />
                   </button>
@@ -1292,50 +2026,47 @@ export default function App() {
                 <div className="p-8 space-y-6 overflow-y-auto max-h-[70vh] custom-scrollbar">
                   <section className="space-y-3">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                      <Percent className="w-4 h-4 text-rose-900" />
-                      Comissão e Taxa de Pagamento
+                       <Tag className="w-4 h-4 text-rose-900" />
+                       Anúncio Clássico
                     </h3>
                     <p className="text-sm text-slate-600 leading-relaxed">
-                      A Shopee cobra uma comissão que já inclui a taxa de processamento de pagamento. O valor varia conforme o preço do produto:
-                    </p>
-                    <ul className="text-xs space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                      <li className="flex justify-between"><span>Até R$ 79,99:</span> <span className="font-bold">20% + R$ 4,00</span></li>
-                      <li className="flex justify-between"><span>R$ 80,00 a R$ 99,99:</span> <span className="font-bold">14% + R$ 16,00</span></li>
-                      <li className="flex justify-between"><span>R$ 100,00 a R$ 199,99:</span> <span className="font-bold">14% + R$ 20,00</span></li>
-                      <li className="flex justify-between"><span>Acima de R$ 200,00:</span> <span className="font-bold">14% + R$ 26,00</span></li>
-                    </ul>
-                  </section>
-
-                  <section className="space-y-3">
-                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                      <Truck className="w-4 h-4 text-rose-900" />
-                      Frete Pago pelo Vendedor
-                    </h3>
-                    <p className="text-sm text-slate-600 leading-relaxed">
-                      Se você oferece frete grátis ou descontos no frete, esse valor sai diretamente do seu lucro. Use o campo de logística para simular quanto esse custo impacta sua margem final.
+                      Possui exposição moderada. A comissão varia entre 10% e 14% dependendo da categoria do produto no Mercado Livre.
                     </p>
                   </section>
 
                   <section className="space-y-3">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                      <Megaphone className="w-4 h-4 text-rose-900" />
-                      Marketing (Ads e Cupons)
+                       <Zap className="w-4 h-4 text-rose-900" />
+                       Anúncio Premium
                     </h3>
                     <p className="text-sm text-slate-600 leading-relaxed">
-                      <strong>Shopee Ads:</strong> O custo médio que você gasta em anúncios para realizar uma venda.<br/>
-                      <strong>Cupons:</strong> O valor do desconto que você oferece e que é absorvido pela sua loja.
+                      Máxima exposição e oferece parcelamento sem juros para o comprador. A comissão varia entre 15% e 19%.
                     </p>
                   </section>
 
-                  <div className="p-4 bg-rose-50 rounded-xl border border-rose-100">
-                    <p className="text-xs text-rose-900 font-medium">
-                      💡 <strong>Dica:</strong> Use o "Preço Sugerido" para garantir que você receba o mesmo valor líquido que receberia em uma venda direta fora da plataforma.
+                  <section className="space-y-3">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                       <DollarSign className="w-4 h-4 text-rose-900" />
+                       Custo Fixo (R$ 6,00)
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Produtos com valor inferior a R$ 79,00 pagam uma taxa fixa de R$ 6,00 por unidade vendida, além da comissão por categoria.
                     </p>
-                  </div>
+                  </section>
+
+                  <section className="space-y-3">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                       <Truck className="w-4 h-4 text-rose-900" />
+                       Frete Grátis
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Para produtos a partir de R$ 79,00, o frete grátis é obrigatório. O Mercado Livre oferece descontos no custo deste frete baseado na sua reputação como vendedor.
+                    </p>
+                  </section>
                 </div>
                 <div className="p-6 bg-slate-50 border-t border-slate-100">
                   <button
-                    onClick={() => setShowShopeeInfo(false)}
+                    onClick={() => setShowMlInfo(false)}
                     className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
                   >
                     Entendi
