@@ -67,7 +67,7 @@ export default function App() {
   });
 
   const [currency, setCurrency] = useState('R$');
-  const [siteName, setSiteName] = useState(() => localStorage.getItem('site_name') || '3D Print Cost Master');
+  const [siteName, setSiteName] = useState(() => localStorage.getItem('site_name') || 'Calculadora 3D');
   const [siteLogo, setSiteLogo] = useState(() => localStorage.getItem('site_logo') || '');
   const [includeWholesaleInPDF, setIncludeWholesaleInPDF] = useState(false);
   const [showCalcPopup, setShowCalcPopup] = useState(false);
@@ -81,7 +81,7 @@ export default function App() {
     const saved = localStorage.getItem('pdf_config');
     return saved ? JSON.parse(saved) : {
       title: 'Orçamento de Impressão 3D',
-      subtitle: 'Calculadora Profissional',
+      subtitle: 'Calculadora 3D',
       projectDetailsTitle: 'Detalhes do Projeto',
       projectNameLabel: 'Nome do Projeto',
       weightLabel: 'Peso Estimado',

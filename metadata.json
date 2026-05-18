@@ -1,5 +1,6 @@
 {
-  "name": "3D Print Cost Master",
-  "description": "Calculadora profissional para precificação de peças 3D (Atacado e Varejo).",
-  "requestFramePermissions": []
+  "name": "Calculadora 3D",
+  "description": "Calculadora profissional para precificação de peças 3D (Atacado, Varejo, Shopee e Mercado Livre).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
