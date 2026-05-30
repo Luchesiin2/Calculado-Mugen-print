@@ -69,11 +69,10 @@ export default function App() {
   });
 
   const [currency, setCurrency] = useState('R$');
-  const [siteName, setSiteName] = useState(() => localStorage.getItem('site_name') || 'Calculadora 3D');
-  const [siteLogo, setSiteLogo] = useState(() => localStorage.getItem('site_logo') || '');
+  const [siteName] = useState('CalcLan3D');
+  const [siteLogo] = useState('');
   const [includeWholesaleInPDF, setIncludeWholesaleInPDF] = useState(false);
   const [showCalcPopup, setShowCalcPopup] = useState(false);
-  const [showBrandingPopup, setShowBrandingPopup] = useState(false);
   const [showPdfPopup, setShowPdfPopup] = useState(false);
   const [showTextQuotePopup, setShowTextQuotePopup] = useState(false);
   const [showShopeeInfo, setShowShopeeInfo] = useState(false);
@@ -83,7 +82,7 @@ export default function App() {
     const saved = localStorage.getItem('pdf_config');
     return saved ? JSON.parse(saved) : {
       title: 'Orçamento de Impressão 3D',
-      subtitle: 'Calculadora 3D',
+      subtitle: 'CalcLan3D',
       projectDetailsTitle: 'Detalhes do Projeto',
       projectNameLabel: 'Nome do Projeto',
       weightLabel: 'Peso Estimado',
@@ -435,12 +434,7 @@ export default function App() {
     setMlCommissionRate(type === 'classico' ? 11.5 : 16.5);
   };
 
-  const saveBranding = (name: string, logo: string) => {
-    setSiteName(name);
-    setSiteLogo(logo);
-    localStorage.setItem('site_name', name);
-    localStorage.setItem('site_logo', logo);
-  };
+
 
   const savePdfConfig = (config: any) => {
     setPdfConfig(config);
@@ -540,29 +534,14 @@ export default function App() {
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
         {/* Header */}
-        <header className="mb-8 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {siteLogo ? (
-              <img src={siteLogo} alt="Logo" className="w-12 h-12 object-contain rounded-lg shadow-sm" referrerPolicy="no-referrer" />
-            ) : (
-              <Calculator className="w-10 h-10 text-rose-900" />
-            )}
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-                {siteName}
-              </h1>
-              <p className="text-slate-500 mt-1 text-sm md:text-base">Precificação por margem sobre o material</p>
-            </div>
+        <header className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center justify-center md:justify-start gap-4">
+            <h1 className="text-4xl md:text-5xl font-black tracking-tight text-slate-800 select-none hover:scale-105 transition-all duration-300">
+              CalcLan<span className="text-rose-900">3D</span>
+            </h1>
           </div>
           <div className="flex flex-col md:flex-row md:items-center gap-4">
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowBrandingPopup(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all border border-slate-200"
-              >
-                <Settings className="w-4 h-4" />
-                Branding
-              </button>
               <button
                 onClick={() => setShowPdfPopup(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all border border-slate-200"
@@ -2412,61 +2391,7 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {/* Branding Popup */}
-        <AnimatePresence>
-          {showBrandingPopup && (
-            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden"
-              >
-                <div className="bg-rose-900 p-6 text-white flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Settings className="w-6 h-6" />
-                    <h2 className="text-xl font-bold">Branding e Identidade</h2>
-                  </div>
-                  <button 
-                    onClick={() => setShowBrandingPopup(false)}
-                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-                <div className="p-8 space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Nome da Empresa/Site</label>
-                    <input
-                      type="text"
-                      value={siteName}
-                      onChange={(e) => saveBranding(e.target.value, siteLogo)}
-                      placeholder="Ex: Minha Oficina 3D"
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-800 focus:border-transparent outline-none transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">URL da Logo (PNG/JPG)</label>
-                    <input
-                      type="text"
-                      value={siteLogo}
-                      onChange={(e) => saveBranding(siteName, e.target.value)}
-                      placeholder="https://exemplo.com/logo.png"
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-800 focus:border-transparent outline-none transition-all"
-                    />
-                    <p className="text-xs text-slate-400 mt-2 italic">A logo aparecerá no cabeçalho e nos PDFs gerados.</p>
-                  </div>
-                  <button
-                    onClick={() => setShowBrandingPopup(false)}
-                    className="w-full py-4 bg-rose-900 text-white rounded-xl font-bold hover:bg-rose-950 transition-all shadow-lg"
-                  >
-                    Salvar e Fechar
-                  </button>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+
 
         {/* Common Calculator Popup */}
         <AnimatePresence>
