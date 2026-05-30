@@ -31,6 +31,7 @@ interface Calculation {
   isKeychainMode?: boolean;
   keychainRingPrice?: number;
   keychainPurgeWeight?: number;
+  lossPercentage?: number;
 }
 
 const PRINTER_PRESETS = [
@@ -61,6 +62,7 @@ export default function App() {
   const [retailMargin, setRetailMargin] = useState<number>(500); // Default to 6x (500% profit over cost)
   const [wholesaleMargin, setWholesaleMargin] = useState<number>(400); // Default to 5x (400% profit over cost)
   const [projectName, setProjectName] = useState<string>('');
+  const [lossPercentage, setLossPercentage] = useState<number>(10);
   const [history, setHistory] = useState<Calculation[]>(() => {
     const saved = localStorage.getItem('calc_history_v3');
     return saved ? JSON.parse(saved) : [];
@@ -262,7 +264,11 @@ export default function App() {
     };
   }, [useAdvancedCosts, printTimeHours, printTimeMinutes, hourlyRate, electricityKwhPrice, printerPowerWatts, printerPrice, printerLifespan]);
 
-  const totalProductionCost = useMemo(() => materialCost + keychainPurgeCost + keychainExtrasCost + advancedCosts.total, [materialCost, keychainPurgeCost, keychainExtrasCost, advancedCosts.total]);
+  const materialLossCost = useMemo(() => {
+    return (materialCost + keychainPurgeCost) * (lossPercentage / 100);
+  }, [materialCost, keychainPurgeCost, lossPercentage]);
+
+  const totalProductionCost = useMemo(() => materialCost + keychainPurgeCost + keychainExtrasCost + advancedCosts.total + materialLossCost, [materialCost, keychainPurgeCost, keychainExtrasCost, advancedCosts.total, materialLossCost]);
 
   const retailPrice = useMemo(() => {
     return totalProductionCost * (1 + retailMargin / 100);
@@ -296,7 +302,8 @@ export default function App() {
       isKeychainMode,
       keychainRingPrice,
       keychainPurgeWeight,
-      advancedTotalCost: advancedCosts.total
+      advancedTotalCost: advancedCosts.total,
+      lossPercentage
     };
     const newHistory = [newCalc, ...history].slice(0, 10);
     setHistory(newHistory);
@@ -314,6 +321,7 @@ export default function App() {
     setProjectName(item.name);
     setFilamentPrice(item.filamentPrice);
     setWeight(item.weight);
+    setLossPercentage(item.lossPercentage !== undefined ? item.lossPercentage : 10);
     setRetailMargin(item.retailMargin);
     setWholesaleMargin(item.wholesaleMargin);
     setUseAdvancedCosts(item.useAdvancedCosts || false);
@@ -711,6 +719,23 @@ export default function App() {
                               />
                             </div>
                           </div>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1 flex items-center gap-1">
+                              Perda de Material ou Erro (%)
+                              <Info className="w-3.5 h-3.5 text-slate-400 cursor-help" title="Porcentagem extra de filamento para compensar falhas de impressão, suportes, purgas ou rebarbas desnecessárias." />
+                            </label>
+                            <div className="relative">
+                              <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                              <input
+                                type="number"
+                                value={lossPercentage}
+                                onChange={(e) => setLossPercentage(Number(e.target.value))}
+                                className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                                min="0"
+                                max="100"
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
 
@@ -1025,6 +1050,23 @@ export default function App() {
                                 step="0.01"
                                 onChange={(e) => setKeychainRingPrice(Number(e.target.value))}
                                 className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1 flex items-center gap-1">
+                              Perda de Material ou Erro (%)
+                              <Info className="w-3.5 h-3.5 text-slate-400 cursor-help" title="Porcentagem extra de filamento para compensar falhas de impressão, suportes, purgas ou rebarbas desnecessárias." />
+                            </label>
+                            <div className="relative">
+                              <Percent className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                              <input
+                                type="number"
+                                value={lossPercentage}
+                                onChange={(e) => setLossPercentage(Number(e.target.value))}
+                                className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none font-medium"
+                                min="0"
+                                max="100"
                               />
                             </div>
                           </div>
@@ -1527,6 +1569,12 @@ export default function App() {
                           <span>Material Base ({weight}g):</span>
                           <span className="font-mono">{currency} {materialCost.toFixed(2)}</span>
                         </div>
+                        {lossPercentage > 0 && (
+                          <div className="flex justify-between text-amber-600 font-medium">
+                            <span>Perda/Erro ({lossPercentage}%):</span>
+                            <span className="font-mono">{currency} {materialLossCost.toFixed(2)}</span>
+                          </div>
+                        )}
                         {isKeychainMode && (
                           <>
                             {keychainPurgeCost > 0 && (
@@ -1926,7 +1974,7 @@ export default function App() {
               </div>
               <div>
                 <p style={{ fontSize: '9pt', color: '#64748b', margin: 0 }}>{pdfConfig.weightLabel}</p>
-                <p style={{ fontSize: '12pt', fontWeight: 'bold', margin: 0 }}>{weight}g</p>
+                <p style={{ fontSize: '12pt', fontWeight: 'bold', margin: 0 }}>{weight}g {lossPercentage > 0 ? `(+ ${lossPercentage}% perda/erro)` : ''}</p>
               </div>
             </div>
           </div>
