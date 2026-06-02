@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Calculator, Package, User, DollarSign, Weight, History, Trash2, Save, Percent, TrendingUp, Download, Globe, X, Plus, Minus, Divide, Equal, FileText, Settings, Copy, Share2, MessageCircle, ArrowUpRight, ShoppingBag, Truck, Tag, Megaphone, Info, Clock, Zap, BarChart3 } from 'lucide-react';
+import { Calculator, Package, User, DollarSign, Weight, History, Trash2, Save, Percent, TrendingUp, Download, Globe, X, Plus, Minus, Divide, Equal, FileText, Settings, Copy, Share2, MessageCircle, ArrowUpRight, ShoppingBag, Truck, Tag, Megaphone, Info, Clock, Zap, BarChart3, Video, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -123,7 +123,7 @@ export default function App() {
   };
 
   // Shopee Calculator States
-  const [activeTab, setActiveTab] = useState<'direct' | 'shopee' | 'keychain' | 'mercadolivre'>('direct');
+  const [activeTab, setActiveTab] = useState<'direct' | 'shopee' | 'keychain' | 'mercadolivre' | 'tiktok'>('direct');
   const [shopeeShipping, setShopeeShipping] = useState<number>(0);
   const [shopeeAds, setShopeeAds] = useState<number>(0);
   const [shopeeDiscount, setShopeeDiscount] = useState<number>(0);
@@ -137,6 +137,16 @@ export default function App() {
   const [mlTaxRate, setMlTaxRate] = useState<number>(4);
   const [mlManualPrice, setMlManualPrice] = useState<number>(0);
   const [showMlInfo, setShowMlInfo] = useState(false);
+
+  // TikTok Shop States
+  const [tiktokCommissionRate, setTiktokCommissionRate] = useState<number>(13.0);
+  const [tiktokFixedFee, setTiktokFixedFee] = useState<number>(1.50);
+  const [tiktokShipping, setTiktokShipping] = useState<number>(0);
+  const [tiktokAds, setTiktokAds] = useState<number>(0);
+  const [tiktokDiscount, setTiktokDiscount] = useState<number>(0);
+  const [tiktokTaxRate, setTiktokTaxRate] = useState<number>(4);
+  const [tiktokManualPrice, setTiktokManualPrice] = useState<number>(0);
+  const [showTiktokInfo, setShowTiktokInfo] = useState(false);
 
   const handleCalcInput = (val: string) => {
     if (val === 'C') {
@@ -421,12 +431,41 @@ export default function App() {
     };
   }, [mlManualPrice, retailPrice, totalProductionCost, mlCommissionRate, mlTaxRate, mlShippingCost]);
 
+  const tiktokResults = useMemo(() => {
+    const price = tiktokManualPrice || retailPrice;
+    
+    const commission = (price * (tiktokCommissionRate / 100)) + tiktokFixedFee;
+    const tax = price * (tiktokTaxRate / 100);
+    const totalFees = commission + tax + tiktokShipping + tiktokAds + tiktokDiscount;
+    const netProfit = price - totalProductionCost - totalFees;
+    const margin = price > 0 ? (netProfit / price) * 100 : 0;
+
+    const targetProfit = retailPrice - totalProductionCost;
+    const otherCosts = tiktokShipping + tiktokAds + tiktokDiscount;
+    // Formula for target price based on commission rate, tax rate, and fixed costs
+    const suggestedPrice = (targetProfit + totalProductionCost + tiktokFixedFee + otherCosts) / (1 - (tiktokCommissionRate / 100) - (tiktokTaxRate / 100));
+
+    return {
+      price,
+      commission,
+      tax,
+      totalFees,
+      netProfit,
+      margin,
+      suggestedPrice
+    };
+  }, [tiktokManualPrice, retailPrice, totalProductionCost, tiktokCommissionRate, tiktokFixedFee, tiktokShipping, tiktokAds, tiktokDiscount, tiktokTaxRate]);
+
   const suggestShopeePrice = () => {
     setShopeeManualPrice(Number(shopeeResults.suggestedPrice.toFixed(2)));
   };
 
   const suggestMlPrice = () => {
     setMlManualPrice(Number(mlResults.suggestedPrice.toFixed(2)));
+  };
+
+  const suggestTiktokPrice = () => {
+    setTiktokManualPrice(Number(tiktokResults.suggestedPrice.toFixed(2)));
   };
 
   const handleMlTypeChange = (type: 'classico' | 'premium') => {
@@ -511,6 +550,13 @@ export default function App() {
         { name: 'Lucro L.', valor: mlResults.netProfit, color: '#10b981' }
       ];
     }
+    if (activeTab === 'tiktok') {
+      return [
+        { name: 'Produção', valor: totalProductionCost, color: '#64748b' },
+        { name: 'Venda', valor: tiktokResults.price, color: '#ec4899' },
+        { name: 'Lucro L.', valor: tiktokResults.netProfit, color: '#10b981' }
+      ];
+    }
     return [
       {
         name: 'Produção',
@@ -528,7 +574,7 @@ export default function App() {
         color: '#f43f5e'
       }
     ];
-  }, [activeTab, totalProductionCost, retailPrice, wholesalePrice, shopeeResults, mlResults]);
+  }, [activeTab, totalProductionCost, retailPrice, wholesalePrice, shopeeResults, mlResults, tiktokResults]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans p-4 md:p-8">
@@ -619,6 +665,20 @@ export default function App() {
           >
             <Globe className="w-4 h-4" />
             Mercado Livre
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('tiktok');
+              setIsKeychainMode(false);
+            }}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'tiktok' 
+                ? 'bg-white text-rose-900 shadow-md' 
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <Video className="w-4 h-4" />
+            TikTok Shop
           </button>
           <button
             onClick={() => {
@@ -1379,7 +1439,7 @@ export default function App() {
                     </div>
                   </div>
                 </motion.div>
-              ) : (
+              ) : activeTab === 'shopee' ? (
                 <motion.div 
                   key="shopee-calc"
                   initial={{ opacity: 0, x: 20 }}
@@ -1503,6 +1563,165 @@ export default function App() {
                             <select 
                               value={shopeeTaxRate}
                               onChange={(e) => setShopeeTaxRate(Number(e.target.value))}
+                              className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none bg-white"
+                            >
+                              <option value={0}>MEI (0%)</option>
+                              <option value={4}>Simples Nacional (4%)</option>
+                              <option value={6}>Simples Nacional (6%)</option>
+                              <option value={10}>Outros (10%)</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key="tiktok-calc"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200"
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-semibold flex items-center gap-2">
+                      <Video className="w-5 h-5 text-rose-900 animate-pulse" />
+                      Calculadora TikTok Shop
+                    </h2>
+                    <button 
+                      onClick={() => setShowTiktokInfo(true)}
+                      className="p-2 bg-slate-100 text-slate-500 rounded-full hover:bg-slate-200 transition-colors"
+                      title="Como as taxas são calculadas?"
+                    >
+                      <Info className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-6">
+                    {/* Price Suggestion Banner */}
+                    <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-rose-100 rounded-xl text-rose-900">
+                          <TrendingUp className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-rose-900 uppercase tracking-wider">Preço Sugerido para TikTok</p>
+                          <p className="text-lg font-bold text-slate-900">
+                            {currency} {tiktokResults.suggestedPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={suggestTiktokPrice}
+                        className="px-4 py-2 bg-rose-900 text-white rounded-lg text-sm font-bold hover:bg-rose-950 transition-all shadow-sm"
+                      >
+                        Usar Preço Sugerido
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-6">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-2">Preço de Venda TikTok ({currency})</label>
+                          <div className="relative">
+                            <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-rose-900" />
+                            <input
+                              type="number"
+                              value={tiktokManualPrice || ''}
+                              onChange={(e) => setTiktokManualPrice(Number(e.target.value))}
+                              placeholder={`Base: ${retailPrice.toFixed(2)}`}
+                              className="w-full pl-9 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none font-bold text-lg"
+                            />
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-1">Acrescente o valor de venda desejado na TikTok Shop.</p>
+                        </div>
+
+                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                          <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                            <Truck className="w-3 h-3" /> Custos Logísticos
+                          </h3>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Frete Pago pelo Vendedor</label>
+                            <div className="relative">
+                              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                              <input
+                                type="number"
+                                value={tiktokShipping}
+                                onChange={(e) => setTiktokShipping(Number(e.target.value))}
+                                className="w-full pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                              />
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-1">Custo logístico que você assume para o comprador.</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-6">
+                        <div className="p-5 bg-rose-50/50 rounded-2xl border border-rose-100 space-y-4">
+                          <h3 className="text-xs font-bold uppercase tracking-widest text-rose-900 flex items-center gap-2">
+                            <Megaphone className="w-3 h-3" /> Marketing e Promoção
+                          </h3>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs text-slate-500 mb-1">Ads TikTok</label>
+                              <div className="relative">
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                <input
+                                  type="number"
+                                  value={tiktokAds}
+                                  onChange={(e) => setTiktokAds(Number(e.target.value))}
+                                  className="w-full pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs text-slate-500 mb-1">Descontos/Cupons</label>
+                              <div className="relative">
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                                <input
+                                  type="number"
+                                  value={tiktokDiscount}
+                                  onChange={(e) => setTiktokDiscount(Number(e.target.value))}
+                                  className="w-full pl-8 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-slate-400 italic">Promoções no app ou comissão paga para criadores afiliados.</p>
+                        </div>
+
+                        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                          <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                            <Tag className="w-3 h-3" /> Configurações de Taxa
+                          </h3>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs text-slate-500 mb-1">Comissão (%)</label>
+                              <input
+                                type="number"
+                                value={tiktokCommissionRate}
+                                step="0.1"
+                                onChange={(e) => setTiktokCommissionRate(Number(e.target.value))}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-slate-500 mb-1">Taxa Fixa ({currency})</label>
+                              <input
+                                type="number"
+                                value={tiktokFixedFee}
+                                step="0.1"
+                                onChange={(e) => setTiktokFixedFee(Number(e.target.value))}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1">Impostos (%)</label>
+                            <select 
+                              value={tiktokTaxRate}
+                              onChange={(e) => setTiktokTaxRate(Number(e.target.value))}
                               className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none bg-white"
                             >
                               <option value={0}>MEI (0%)</option>
@@ -1777,7 +1996,7 @@ export default function App() {
                     </div>
                   </div>
                 </motion.div>
-              ) : (
+              ) : activeTab === 'shopee' ? (
                 <motion.div 
                   key="shopee-results"
                   initial={{ opacity: 0, y: 10 }}
@@ -1845,6 +2064,85 @@ export default function App() {
                     <div className="text-sm text-slate-500 mb-1">Recebimento Líquido</div>
                     <div className="text-4xl font-bold tracking-tight text-slate-900">
                       {currency} {(shopeeResults.price - shopeeResults.totalFees).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between text-sm text-slate-500">
+                      <span>Custo Total:</span>
+                      <span>{currency} {totalProductionCost.toFixed(2)}</span>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key="tiktok-results"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="grid grid-cols-1 md:grid-cols-3 gap-6"
+                >
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <Video className="w-6 h-6 text-slate-400" />
+                      <span className="text-xs font-bold uppercase tracking-widest text-slate-400 font-sans">Resumo TikTok</span>
+                    </div>
+                    <div className="text-sm text-slate-500 mb-1">Total de Taxas e Custos</div>
+                    <div className="text-4xl font-bold tracking-tight text-slate-900">
+                      {currency} {tiktokResults.totalFees.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-1 text-sm text-slate-500">
+                      <div className="flex justify-between">
+                        <span>Comissão ({tiktokCommissionRate}%):</span>
+                        <span className="font-mono">{currency} {(tiktokResults.price * (tiktokCommissionRate / 100)).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Taxa Fixa:</span>
+                        <span className="font-mono">{currency} {tiktokFixedFee.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Impostos ({tiktokTaxRate}%):</span>
+                        <span className="font-mono">{currency} {tiktokResults.tax.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Outros Custos:</span>
+                        <span className="font-mono">{currency} {(tiktokShipping + tiktokAds + tiktokDiscount).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-[#fe2c55]/10 border border-[#fe2c55]/30 rounded-3xl p-6 text-slate-900 shadow-xl shadow-slate-100"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <DollarSign className="w-6 h-6 text-[#fe2c55]" />
+                      <span className="text-xs font-bold uppercase tracking-widest text-[#fe2c55]">Lucro Líquido</span>
+                    </div>
+                    <div className="text-sm text-slate-500 mb-1">Após todas as taxas</div>
+                    <div className="text-4xl font-bold text-rose-950 font-black tracking-tight">
+                      {currency} {tiktokResults.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-[#fe2c55]/20 flex justify-between text-sm">
+                      <span>Margem Líquida:</span>
+                      <span className="font-bold text-[#fe2c55]">{tiktokResults.margin.toFixed(1)}%</span>
+                    </div>
+                  </motion.div>
+
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <TrendingUp className="w-6 h-6 text-rose-900" />
+                      <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Comparativo</span>
+                    </div>
+                    <div className="text-sm text-slate-500 mb-1">Recebimento Líquido</div>
+                    <div className="text-4xl font-bold tracking-tight text-slate-900">
+                      {currency} {(tiktokResults.price - tiktokResults.totalFees).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between text-sm text-slate-500">
                       <span>Custo Total:</span>
@@ -2174,6 +2472,92 @@ export default function App() {
                   <button
                     onClick={() => setShowShopeeInfo(false)}
                     className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
+                  >
+                    Entendi
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* TikTok Shop Info Popup */}
+        <AnimatePresence>
+          {showTiktokInfo && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-[110]">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden"
+              >
+                <div className="bg-[#fe2c55] p-6 text-white flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Video className="w-6 h-6 animate-bounce" />
+                    <h2 className="text-xl font-bold">Entendendo as Taxas TikTok Shop</h2>
+                  </div>
+                  <button 
+                    onClick={() => setShowTiktokInfo(false)}
+                    className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="p-8 space-y-6 overflow-y-auto max-h-[70vh] custom-scrollbar">
+                  <section className="space-y-3">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                      <Percent className="w-4 h-4 text-[#fe2c55]" />
+                      Comissão de Venda (Referral Fee)
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      A TikTok Shop cobra uma comissão padrão de indicação sobre as vendas na plataforma (comumente em torno de <strong>13%</strong> para a maioria das categorias no Brasil). Este percentual incide sobre o valor total do produto.
+                    </p>
+                  </section>
+
+                  <section className="space-y-3">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-[#fe2c55]" />
+                      Taxa Fixa Transacional
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Além da comissão de categoria, desconta-se também uma tarifa fixa por transação bem-sucedida para pagamentos e gateways (geralmente fixada em <strong>R$ 1,50</strong>).
+                    </p>
+                  </section>
+
+                  <section className="space-y-3">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-[#fe2c55]" />
+                      Custo de Frete (Seller Shipping)
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      Caso o seller configure campanhas ou assuma uma porção do custo de frete para alavancar conversão de compra por frete grátis, esta despesa pode ser adicionada no campo correspondente para dedução líquida.
+                    </p>
+                  </section>
+
+                  <section className="space-y-3">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                      <Megaphone className="w-4 h-4 text-[#fe2c55]" />
+                      Tráfego Ads & Programa de Afiliados
+                    </h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      <strong>Ads do TikTok:</strong> Gastos planejados de tráfego pago na plataforma de anúncios do TikTok.<br/>
+                      <strong>Afiliação/Lives:</strong> Descontos ou tarifas acordadas com influenciadores afiliados da plataforma que geram tráfego em suas fotos, vídeos curtindo ou transmissões em tempo real.
+                    </p>
+                  </section>
+
+                  <div className="p-4 bg-rose-50 rounded-xl border border-rose-100">
+                    <p className="text-xs text-rose-900 font-medium pb-1">
+                      💡 <strong>Dica de Precificação:</strong>
+                    </p>
+                    <p className="text-xs text-rose-800 leading-relaxed">
+                      Ao usar a ferramenta <strong>"Usar Preço Sugerido"</strong>, calculamos a engenharia reversa das taxas para que seu retorno real seja igual ao de uma venda por fora da plataforma!
+                    </p>
+                  </div>
+                </div>
+                <div className="p-6 bg-slate-50 border-t border-slate-100">
+                  <button
+                    onClick={() => setShowTiktokInfo(false)}
+                    className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all focus:outline-none"
                   >
                     Entendi
                   </button>
