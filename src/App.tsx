@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Calculator, Package, User, DollarSign, Weight, History, Trash2, Save, Percent, TrendingUp, Download, Globe, X, Plus, Minus, Divide, Equal, FileText, Settings, Copy, Share2, MessageCircle, ArrowUpRight, ShoppingBag, Truck, Tag, Megaphone, Info, Clock, Zap, BarChart3, Video, Sparkles } from 'lucide-react';
+import { Calculator, Package, User, DollarSign, Weight, History, Trash2, Save, Percent, TrendingUp, Download, Globe, X, Plus, Minus, Divide, Equal, FileText, Settings, Copy, Share2, MessageCircle, ArrowUpRight, ShoppingBag, Truck, Tag, Megaphone, Info, Clock, Zap, BarChart3, Video, Sparkles, Palette, Layers } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -32,6 +32,11 @@ interface Calculation {
   keychainRingPrice?: number;
   keychainPurgeWeight?: number;
   lossPercentage?: number;
+  // Parts Quantity and Multicolor options
+  usePartsQuantity?: boolean;
+  partsQuantity?: number;
+  useMulticolor?: boolean;
+  multicolorColors?: { id: string; name: string; filamentPrice: number; weight: number; enabled: boolean; }[];
 }
 
 const PRINTER_PRESETS = [
@@ -112,6 +117,27 @@ export default function App() {
   const [keychainRingPrice, setKeychainRingPrice] = useState<number>(0.50);
   const [keychainPurgeWeight, setKeychainPurgeWeight] = useState<number>(0);
   const [isKeychainMode, setIsKeychainMode] = useState<boolean>(false);
+
+  // Parts Quantity and Multicolor State
+  const [usePartsQuantity, setUsePartsQuantity] = useState<boolean>(false);
+  const [partsQuantity, setPartsQuantity] = useState<number>(1);
+  const [useMulticolor, setUseMulticolor] = useState<boolean>(false);
+  const [multicolorColors, setMulticolorColors] = useState([
+    { id: '1', name: 'Cor 1 (Principal)', filamentPrice: 120, weight: 30, enabled: true },
+    { id: '2', name: 'Cor 2 (Secundária)', filamentPrice: 120, weight: 20, enabled: true },
+    { id: '3', name: 'Cor 3', filamentPrice: 120, weight: 0, enabled: false },
+    { id: '4', name: 'Cor 4', filamentPrice: 120, weight: 0, enabled: false },
+  ]);
+  const [viewScope, setViewScope] = useState<'unit' | 'batch'>('unit');
+
+  // Synchronize color prices when default filamentPrice changes
+  const lastFilamentPriceRef = React.useRef(filamentPrice);
+  React.useEffect(() => {
+    if (filamentPrice !== lastFilamentPriceRef.current) {
+      setMulticolorColors(prev => prev.map(c => ({ ...c, filamentPrice })));
+      lastFilamentPriceRef.current = filamentPrice;
+    }
+  }, [filamentPrice]);
 
   const handlePrinterModelChange = (modelName: string) => {
     setPrinterModel(modelName);
@@ -246,12 +272,31 @@ export default function App() {
     }
   };
 
-  const materialCost = useMemo(() => (filamentPrice / 1000) * weight, [filamentPrice, weight]);
+  const totalNetWeight = useMemo(() => {
+    if (useMulticolor) {
+      return multicolorColors
+        .filter(c => c.enabled)
+        .reduce((sum, c) => sum + c.weight, 0);
+    }
+    return weight;
+  }, [useMulticolor, multicolorColors, weight]);
+
+  const materialCost = useMemo(() => {
+    if (useMulticolor) {
+      return multicolorColors
+        .filter(c => c.enabled)
+        .reduce((sum, c) => sum + (c.filamentPrice / 1000) * c.weight, 0);
+    }
+    return (filamentPrice / 1000) * weight;
+  }, [useMulticolor, multicolorColors, filamentPrice, weight]);
 
   const keychainPurgeCost = useMemo(() => {
-    if (!isKeychainMode) return 0;
-    return (filamentPrice / 1000) * keychainPurgeWeight;
-  }, [isKeychainMode, filamentPrice, keychainPurgeWeight]);
+    // If not in keychain mode and not in multicolor mode, we default purge weight to 0.
+    // However, if some purge is set (e.g. for multicolor in direct sell), we can keep it.
+    const purgeW = keychainPurgeWeight || 0;
+    if (purgeW <= 0) return 0;
+    return (filamentPrice / 1000) * purgeW;
+  }, [filamentPrice, keychainPurgeWeight]);
 
   const keychainExtrasCost = useMemo(() => {
     if (!isKeychainMode) return 0;
@@ -274,10 +319,18 @@ export default function App() {
   }, [useAdvancedCosts, printTimeHours, printTimeMinutes, hourlyRate, electricityKwhPrice, printerPowerWatts, printerPrice, printerLifespan]);
 
   const materialLossCost = useMemo(() => {
-    return (materialCost + keychainPurgeCost) * (lossPercentage / 100);
-  }, [materialCost, keychainPurgeCost, lossPercentage]);
+    const N = usePartsQuantity ? Math.max(1, partsQuantity) : 1;
+    // Purge block is printed once per build plate.
+    const purgePerPiece = keychainPurgeCost / N;
+    return (materialCost + purgePerPiece) * (lossPercentage / 100);
+  }, [materialCost, keychainPurgeCost, lossPercentage, usePartsQuantity, partsQuantity]);
 
-  const totalProductionCost = useMemo(() => materialCost + keychainPurgeCost + keychainExtrasCost + advancedCosts.total + materialLossCost, [materialCost, keychainPurgeCost, keychainExtrasCost, advancedCosts.total, materialLossCost]);
+  const totalProductionCost = useMemo(() => {
+    const N = usePartsQuantity ? Math.max(1, partsQuantity) : 1;
+    const purgePerPiece = keychainPurgeCost / N;
+    const advancedCostsPerPiece = advancedCosts.total / N;
+    return materialCost + purgePerPiece + keychainExtrasCost + advancedCostsPerPiece + materialLossCost;
+  }, [materialCost, keychainPurgeCost, keychainExtrasCost, advancedCosts.total, materialLossCost, usePartsQuantity, partsQuantity]);
 
   const retailPrice = useMemo(() => {
     return totalProductionCost * (1 + retailMargin / 100);
@@ -312,7 +365,11 @@ export default function App() {
       keychainRingPrice,
       keychainPurgeWeight,
       advancedTotalCost: advancedCosts.total,
-      lossPercentage
+      lossPercentage,
+      usePartsQuantity,
+      partsQuantity,
+      useMulticolor,
+      multicolorColors
     };
     const newHistory = [newCalc, ...history].slice(0, 10);
     setHistory(newHistory);
@@ -343,6 +400,12 @@ export default function App() {
     setPrinterLifespan(item.printerLifespan || 5000);
     setPrinterModel(item.printerModel || 'Personalizado');
     setIsKeychainMode(item.isKeychainMode || false);
+    setUsePartsQuantity(item.usePartsQuantity || false);
+    setPartsQuantity(item.partsQuantity || 1);
+    setUseMulticolor(item.useMulticolor || false);
+    if (item.multicolorColors) {
+      setMulticolorColors(item.multicolorColors);
+    }
     if (item.isKeychainMode) {
       setActiveTab('keychain');
       setKeychainRingPrice(item.keychainRingPrice || 0);
@@ -535,6 +598,25 @@ export default function App() {
     window.open(`https://wa.me/?text=${encodedText}`, '_blank');
   };
 
+  const numParts = usePartsQuantity ? Math.max(1, partsQuantity) : 1;
+  const isBatchView = usePartsQuantity && partsQuantity > 1 && viewScope === 'batch';
+  const displayMultiplier = isBatchView ? numParts : 1;
+
+  const displayTotalProductionCost = totalProductionCost * displayMultiplier;
+  const displayMaterialCost = materialCost * displayMultiplier;
+  const displayMaterialLossCost = materialLossCost * displayMultiplier;
+  const displayPurgeCost = keychainPurgeCost * (isBatchView ? 1 : (1 / numParts));
+  const displayExtrasCost = keychainExtrasCost * displayMultiplier;
+  const displayAdvancedElectricityCost = advancedCosts.electricity * (isBatchView ? 1 : (1 / numParts));
+  const displayAdvancedLaborCost = advancedCosts.labor * (isBatchView ? 1 : (1 / numParts));
+  const displayAdvancedDepreciationCost = advancedCosts.depreciation * (isBatchView ? 1 : (1 / numParts));
+  const displayAdvancedTotalCost = (displayAdvancedElectricityCost + displayAdvancedLaborCost + displayAdvancedDepreciationCost);
+
+  const displayRetailPrice = retailPrice * displayMultiplier;
+  const displayWholesalePrice = wholesalePrice * displayMultiplier;
+  const displayRetailProfit = displayRetailPrice - displayTotalProductionCost;
+  const displayWholesaleProfit = displayWholesalePrice - displayTotalProductionCost;
+
   const chartData = useMemo(() => {
     if (activeTab === 'shopee') {
       return [
@@ -560,21 +642,21 @@ export default function App() {
     return [
       {
         name: 'Produção',
-        valor: totalProductionCost,
+        valor: displayTotalProductionCost,
         color: '#64748b'
       },
       {
         name: 'Varejo',
-        valor: retailPrice,
+        valor: displayRetailPrice,
         color: '#881337'
       },
       {
         name: 'Atacado',
-        valor: wholesalePrice,
+        valor: displayWholesalePrice,
         color: '#f43f5e'
       }
     ];
-  }, [activeTab, totalProductionCost, retailPrice, wholesalePrice, shopeeResults, mlResults, tiktokResults]);
+  }, [activeTab, displayTotalProductionCost, displayRetailPrice, displayWholesalePrice, shopeeResults, mlResults, tiktokResults]);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans p-4 md:p-8">
@@ -746,18 +828,183 @@ export default function App() {
                               />
                             </div>
                           </div>
-                          <div>
-                            <label className="block text-xs text-slate-500 mb-1">Peso da Peça (g)</label>
-                            <div className="relative">
-                              <Weight className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                              <input
-                                type="number"
-                                value={weight}
-                                onChange={(e) => setWeight(Number(e.target.value))}
-                                className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
-                              />
+
+                          {/* Seletor de Quantidade na Mesa */}
+                          <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                            <div className="flex items-center gap-2">
+                              <Layers className="w-4 h-4 text-rose-900" />
+                              <div>
+                                <span className="text-xs font-bold text-slate-700 block">Quantidade na Mesa</span>
+                                <span className="text-[10px] text-slate-400">Dividir custos fixos pelo lote</span>
+                              </div>
                             </div>
+                            <button
+                              type="button"
+                              onClick={() => setUsePartsQuantity(!usePartsQuantity)}
+                              className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors ${usePartsQuantity ? 'bg-rose-900' : 'bg-slate-300'}`}
+                            >
+                              <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${usePartsQuantity ? 'translate-x-4' : 'translate-x-0'}`} />
+                            </button>
                           </div>
+
+                          {usePartsQuantity && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="p-3 bg-rose-50/40 rounded-xl border border-rose-100/30 space-y-2"
+                            >
+                              <label className="block text-[11px] font-bold text-rose-950">Qtd. Peças na Mesa (Lote):</label>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setPartsQuantity(Math.max(1, partsQuantity - 1))}
+                                  className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 active:scale-95"
+                                >
+                                  <Minus className="w-3.5 h-3.5" />
+                                </button>
+                                <input
+                                  type="number"
+                                  value={partsQuantity}
+                                  onChange={(e) => setPartsQuantity(Math.max(1, Number(e.target.value)))}
+                                  className="w-16 text-center py-1 rounded-lg border border-slate-200 font-bold text-slate-800 outline-none text-sm"
+                                  min="1"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setPartsQuantity(partsQuantity + 1)}
+                                  className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 active:scale-95"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                </button>
+                                <span className="text-[10px] text-slate-400 italic">peças impressas juntas</span>
+                              </div>
+                            </motion.div>
+                          )}
+
+                          {/* Seletor de Multicolor */}
+                          <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                            <div className="flex items-center gap-2">
+                              <Palette className="w-4 h-4 text-emerald-600" />
+                              <div>
+                                <span className="text-xs font-bold text-slate-700 block">Ativar Multicolor</span>
+                                <span className="text-[10px] text-slate-400">Peso separado por cor / valor</span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setUseMulticolor(!useMulticolor)}
+                              className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors ${useMulticolor ? 'bg-rose-900' : 'bg-slate-300'}`}
+                            >
+                              <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${useMulticolor ? 'translate-x-4' : 'translate-x-0'}`} />
+                            </button>
+                          </div>
+
+                          {useMulticolor && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3"
+                            >
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Cores de Filamento (Max 4)</span>
+                              <div className="space-y-3">
+                                {multicolorColors.map((color, idx) => (
+                                  <div key={color.id} className="p-2 bg-white rounded-lg border border-slate-100 shadow-sm space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="checkbox"
+                                          id={`direct-color-chk-${color.id}`}
+                                          checked={color.enabled}
+                                          onChange={(e) => {
+                                            const updated = [...multicolorColors];
+                                            updated[idx].enabled = e.target.checked;
+                                            setMulticolorColors(updated);
+                                          }}
+                                          className="w-4 h-4 accent-rose-900 rounded cursor-pointer"
+                                        />
+                                        <input
+                                          type="text"
+                                          value={color.name}
+                                          onChange={(e) => {
+                                            const updated = [...multicolorColors];
+                                            updated[idx].name = e.target.value;
+                                            setMulticolorColors(updated);
+                                          }}
+                                          className="text-xs font-bold text-slate-700 outline-none border-b border-transparent hover:border-slate-200 focus:border-rose-900 w-28 bg-transparent"
+                                        />
+                                      </div>
+                                      <span className="text-[9px] text-slate-400 font-mono">Slot {idx+1}</span>
+                                    </div>
+                                    
+                                    {color.enabled && (
+                                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-50">
+                                        <div>
+                                          <label className="text-[9px] text-slate-400 block">Preço (R$/kg)</label>
+                                          <input
+                                            type="number"
+                                            value={color.filamentPrice}
+                                            onChange={(e) => {
+                                              const updated = [...multicolorColors];
+                                              updated[idx].filamentPrice = Number(e.target.value);
+                                              setMulticolorColors(updated);
+                                            }}
+                                            className="w-full text-xs font-semibold py-0.5 px-2 rounded border border-slate-100"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="text-[9px] text-slate-400 block text-right">Peso (g)</label>
+                                          <input
+                                            type="number"
+                                            value={color.weight}
+                                            onChange={(e) => {
+                                              const updated = [...multicolorColors];
+                                              updated[idx].weight = Number(e.target.value);
+                                              setMulticolorColors(updated);
+                                            }}
+                                            className="w-full text-xs font-semibold py-0.5 px-2 rounded border border-slate-100 font-mono text-right"
+                                          />
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div className="pt-2 border-t border-slate-200">
+                                <label className="block text-[10px] text-slate-500 mb-1 flex items-center justify-between">
+                                  <span>Peso da Purga/Torre (g)</span>
+                                  <span className="text-[9px] text-amber-600 font-medium italic">Waste</span>
+                                </label>
+                                <input
+                                  type="number"
+                                  value={keychainPurgeWeight}
+                                  onChange={(e) => setKeychainPurgeWeight(Number(e.target.value))}
+                                  placeholder="Peso purgado em g"
+                                  className="w-full px-3 py-1 text-xs border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-rose-900 font-mono"
+                                />
+                              </div>
+
+                              <div className="bg-rose-50 p-2 rounded-lg text-center text-xs font-bold text-rose-900">
+                                Peso Líquido Total das Cores: {totalNetWeight}g
+                              </div>
+                            </motion.div>
+                          )}
+
+                          {!useMulticolor && (
+                            <div>
+                              <label className="block text-xs text-slate-500 mb-1">Peso da Peça (g)</label>
+                              <div className="relative">
+                                <Weight className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                <input
+                                  type="number"
+                                  value={weight}
+                                  onChange={(e) => setWeight(Number(e.target.value))}
+                                  className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                                />
+                              </div>
+                            </div>
+                          )}
+
                           <div>
                             <label className="block text-xs text-slate-500 mb-1 flex items-center gap-1">
                               Perda de Material ou Erro (%)
@@ -1053,29 +1300,193 @@ export default function App() {
                               className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
                             />
                           </div>
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-xs text-slate-500 mb-1">Peso Peça (g)</label>
-                              <input
-                                type="number"
-                                value={weight}
-                                onChange={(e) => setWeight(Number(e.target.value))}
-                                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
-                              />
+                          {/* Seletor de Quantidade na Mesa */}
+                          <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                            <div className="flex items-center gap-2">
+                              <Layers className="w-4 h-4 text-rose-900" />
+                              <div>
+                                <span className="text-xs font-bold text-slate-700 block">Quantidade na Mesa</span>
+                                <span className="text-[10px] text-slate-400">Dividir custos fixos pelo lote</span>
+                              </div>
                             </div>
-                            <div>
-                              <label className="block text-xs text-slate-500 mb-1 flex items-center gap-1">
-                                Purga (g) <span className="text-[9px] text-rose-500 italic opacity-70">Colorido</span>
-                                <Info className="w-3 h-3 text-slate-400 cursor-help" title="Peso do material desperdiçado durante a troca de cores (prime tower/purge)." />
-                              </label>
-                              <input
-                                type="number"
-                                value={keychainPurgeWeight}
-                                onChange={(e) => setKeychainPurgeWeight(Number(e.target.value))}
-                                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
-                              />
-                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setUsePartsQuantity(!usePartsQuantity)}
+                              className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors ${usePartsQuantity ? 'bg-rose-900' : 'bg-slate-300'}`}
+                            >
+                              <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${usePartsQuantity ? 'translate-x-4' : 'translate-x-0'}`} />
+                            </button>
                           </div>
+
+                          {usePartsQuantity && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="p-3 bg-rose-50/40 rounded-xl border border-rose-100/30 space-y-2"
+                            >
+                              <label className="block text-[11px] font-bold text-rose-950">Qtd. Peças na Mesa (Lote):</label>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setPartsQuantity(Math.max(1, partsQuantity - 1))}
+                                  className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 active:scale-95"
+                                >
+                                  <Minus className="w-3.5 h-3.5" />
+                                </button>
+                                <input
+                                  type="number"
+                                  value={partsQuantity}
+                                  onChange={(e) => setPartsQuantity(Math.max(1, Number(e.target.value)))}
+                                  className="w-16 text-center py-1 rounded-lg border border-slate-200 font-bold text-slate-800 outline-none text-sm"
+                                  min="1"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setPartsQuantity(partsQuantity + 1)}
+                                  className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 active:scale-95"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                </button>
+                                <span className="text-[10px] text-slate-400 italic">peças impressas juntas</span>
+                              </div>
+                            </motion.div>
+                          )}
+
+                          {/* Seletor de Multicolor */}
+                          <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                            <div className="flex items-center gap-2">
+                              <Palette className="w-4 h-4 text-emerald-600" />
+                              <div>
+                                <span className="text-xs font-bold text-slate-700 block">Ativar Multicolor</span>
+                                <span className="text-[10px] text-slate-400">Peso separado por cor / valor</span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setUseMulticolor(!useMulticolor)}
+                              className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors ${useMulticolor ? 'bg-rose-900' : 'bg-slate-300'}`}
+                            >
+                              <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${useMulticolor ? 'translate-x-4' : 'translate-x-0'}`} />
+                            </button>
+                          </div>
+
+                          {useMulticolor && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3"
+                            >
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Cores de Filamento (Max 4)</span>
+                              <div className="space-y-3">
+                                {multicolorColors.map((color, idx) => (
+                                  <div key={color.id} className="p-2 bg-white rounded-lg border border-slate-100 shadow-sm space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="checkbox"
+                                          id={`keychain-color-chk-${color.id}`}
+                                          checked={color.enabled}
+                                          onChange={(e) => {
+                                            const updated = [...multicolorColors];
+                                            updated[idx].enabled = e.target.checked;
+                                            setMulticolorColors(updated);
+                                          }}
+                                          className="w-4 h-4 accent-rose-900 rounded cursor-pointer"
+                                        />
+                                        <input
+                                          type="text"
+                                          value={color.name}
+                                          onChange={(e) => {
+                                            const updated = [...multicolorColors];
+                                            updated[idx].name = e.target.value;
+                                            setMulticolorColors(updated);
+                                          }}
+                                          className="text-xs font-bold text-slate-700 outline-none border-b border-transparent hover:border-slate-200 focus:border-rose-900 w-28 bg-transparent"
+                                        />
+                                      </div>
+                                      <span className="text-[9px] text-slate-400 font-mono">Slot {idx+1}</span>
+                                    </div>
+                                    
+                                    {color.enabled && (
+                                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-50">
+                                        <div>
+                                          <label className="text-[9px] text-slate-400 block">Preço (R$/kg)</label>
+                                          <input
+                                            type="number"
+                                            value={color.filamentPrice}
+                                            onChange={(e) => {
+                                              const updated = [...multicolorColors];
+                                              updated[idx].filamentPrice = Number(e.target.value);
+                                              setMulticolorColors(updated);
+                                            }}
+                                            className="w-full text-xs font-semibold py-0.5 px-2 rounded border border-slate-100"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="text-[9px] text-slate-400 block text-right">Peso (g)</label>
+                                          <input
+                                            type="number"
+                                            value={color.weight}
+                                            onChange={(e) => {
+                                              const updated = [...multicolorColors];
+                                              updated[idx].weight = Number(e.target.value);
+                                              setMulticolorColors(updated);
+                                            }}
+                                            className="w-full text-xs font-semibold py-0.5 px-2 rounded border border-slate-100 font-mono text-right"
+                                          />
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div className="pt-2 border-t border-slate-200">
+                                <label className="block text-[10px] text-slate-500 mb-1 flex items-center justify-between">
+                                  <span>Peso da Purga/Torre (g)</span>
+                                  <span className="text-[9px] text-amber-600 font-medium italic">Waste</span>
+                                </label>
+                                <input
+                                  type="number"
+                                  value={keychainPurgeWeight}
+                                  onChange={(e) => setKeychainPurgeWeight(Number(e.target.value))}
+                                  placeholder="Peso purgado em g"
+                                  className="w-full px-3 py-1 text-xs border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-rose-900 font-mono"
+                                />
+                              </div>
+
+                              <div className="bg-rose-50 p-2 rounded-lg text-center text-xs font-bold text-rose-900">
+                                Peso Líquido Total das Cores: {totalNetWeight}g
+                              </div>
+                            </motion.div>
+                          )}
+
+                          {!useMulticolor && (
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs text-slate-500 mb-1">Peso Peça (g)</label>
+                                <input
+                                  type="number"
+                                  value={weight}
+                                  onChange={(e) => setWeight(Number(e.target.value))}
+                                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-slate-500 mb-1 flex items-center gap-1">
+                                  Purga (g) <span className="text-[9px] text-rose-500 italic opacity-70">Colorido</span>
+                                  <Info className="w-3 h-3 text-slate-400 cursor-help" title="Peso do material desperdiçado durante a troca de cores (prime tower/purge)." />
+                                </label>
+                                <input
+                                  type="number"
+                                  value={keychainPurgeWeight}
+                                  onChange={(e) => setKeychainPurgeWeight(Number(e.target.value))}
+                                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                                />
+                              </div>
+                            </div>
+                          )}
+
                           <div>
                             <label className="block text-xs text-slate-500 mb-1 flex items-center gap-1">
                               Preço unitário Argola ({currency})
@@ -1092,6 +1503,7 @@ export default function App() {
                               />
                             </div>
                           </div>
+
                           <div>
                             <label className="block text-xs text-slate-500 mb-1 flex items-center gap-1">
                               Perda de Material ou Erro (%)
@@ -1742,8 +2154,38 @@ export default function App() {
             <AnimatePresence mode="wait">
               {activeTab === 'direct' || activeTab === 'keychain' ? (
                 <div className="space-y-6">
+                  {/* Seletor visual de Escopo do Lote */}
+                  {usePartsQuantity && partsQuantity > 1 && (
+                    <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-2xl w-full max-w-sm border border-slate-200">
+                      <button
+                        type="button"
+                        onClick={() => setViewScope('unit')}
+                        className={`flex-1 py-2 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                          viewScope === 'unit' 
+                            ? 'bg-rose-900 text-white shadow-sm' 
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        <User className="w-3.5 h-3.5" />
+                        Uma Peça (Unitário)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewScope('batch')}
+                        className={`flex-1 py-2 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                          viewScope === 'batch' 
+                            ? 'bg-rose-900 text-white shadow-sm' 
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        <Layers className="w-3.5 h-3.5" />
+                        Lote Completo ({partsQuantity} pçs)
+                      </button>
+                    </div>
+                  )}
+
                   <motion.div 
-                    key="direct-results"
+                    key={`${activeTab}-${viewScope}-results`}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
@@ -1758,33 +2200,35 @@ export default function App() {
                         <Weight className="w-6 h-6 text-slate-400" />
                         <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Custo de Produção</span>
                       </div>
-                      <div className="text-sm text-slate-500 mb-1">Custo Total (Material + Extras)</div>
+                      <div className="text-sm text-slate-500 mb-1">
+                        Custo {isBatchView ? 'do Lote Completo' : 'Unitário do Item'}
+                      </div>
                       <div className="text-4xl font-bold tracking-tight text-slate-900">
-                        {currency} {totalProductionCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {currency} {displayTotalProductionCost.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                       <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-1 text-sm text-slate-500">
                         <div className="flex justify-between">
-                          <span>Material Base ({weight}g):</span>
-                          <span className="font-mono">{currency} {materialCost.toFixed(2)}</span>
+                          <span>Material Base ({(totalNetWeight * displayMultiplier).toFixed(0)}g):</span>
+                          <span className="font-mono">{currency} {displayMaterialCost.toFixed(2)}</span>
                         </div>
                         {lossPercentage > 0 && (
                           <div className="flex justify-between text-amber-600 font-medium">
                             <span>Perda/Erro ({lossPercentage}%):</span>
-                            <span className="font-mono">{currency} {materialLossCost.toFixed(2)}</span>
+                            <span className="font-mono">{currency} {displayMaterialLossCost.toFixed(2)}</span>
                           </div>
                         )}
-                        {isKeychainMode && (
+                        {(isKeychainMode || useMulticolor) && (
                           <>
-                            {keychainPurgeCost > 0 && (
+                            {displayPurgeCost > 0 && (
                               <div className="flex justify-between text-slate-400">
-                                <span>Purga (Material):</span>
-                                <span className="font-mono">{currency} {keychainPurgeCost.toFixed(2)}</span>
+                                <span>Bloco Purga:</span>
+                                <span className="font-mono">{currency} {displayPurgeCost.toFixed(2)}</span>
                               </div>
                             )}
-                            {keychainExtrasCost > 0 && (
+                            {isKeychainMode && displayExtrasCost > 0 && (
                               <div className="flex justify-between text-slate-400">
                                 <span>Argola/Insumos:</span>
-                                <span className="font-mono">{currency} {keychainExtrasCost.toFixed(2)}</span>
+                                <span className="font-mono">{currency} {displayExtrasCost.toFixed(2)}</span>
                               </div>
                             )}
                           </>
@@ -1792,22 +2236,22 @@ export default function App() {
                         {useAdvancedCosts && (
                           <>
                             <div className="flex justify-between text-blue-600 font-medium">
-                              <span>Tempo ({advancedCosts.totalHours.toFixed(1)}h):</span>
-                              <span className="font-mono">{currency} {advancedCosts.labor.toFixed(2)}</span>
+                              <span>Mão de Obra ({advancedCosts.totalHours.toFixed(1)}h):</span>
+                              <span className="font-mono">{currency} {displayAdvancedLaborCost.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-yellow-600 font-medium">
-                              <span>Eletricidade:</span>
-                              <span className="font-mono">{currency} {advancedCosts.electricity.toFixed(2)}</span>
+                              <span>Energia Elétrica:</span>
+                              <span className="font-mono">{currency} {displayAdvancedElectricityCost.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-rose-600 font-medium">
-                              <span>Depreciação:</span>
-                              <span className="font-mono">{currency} {advancedCosts.depreciation.toFixed(2)}</span>
+                              <span>Depreciação Máq.:</span>
+                              <span className="font-mono">{currency} {displayAdvancedDepreciationCost.toFixed(2)}</span>
                             </div>
                           </>
                         )}
                         <div className="flex justify-between border-t border-slate-50 pt-1 mt-1 font-bold text-slate-700">
                           <span>Total Gasto:</span>
-                          <span>{currency} {totalProductionCost.toFixed(2)}</span>
+                          <span>{currency} {displayTotalProductionCost.toFixed(2)}</span>
                         </div>
                       </div>
                     </motion.div>
@@ -1823,11 +2267,17 @@ export default function App() {
                       </div>
                       <div className="text-sm opacity-80 mb-1">Preço com {retailMargin}% de Margem</div>
                       <div className="text-4xl font-bold tracking-tight">
-                        {currency} {retailPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {currency} {displayRetailPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
-                      <div className="mt-4 pt-4 border-t border-white/20 flex justify-between text-sm">
-                        <span>Lucro: {currency} {(retailPrice - totalProductionCost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                        <span className="opacity-60">Multiplicador: {(retailPrice / totalProductionCost).toFixed(1)}x</span>
+                      <div className="mt-4 pt-4 border-t border-white/20 flex flex-col gap-1 text-sm">
+                        <div className="flex justify-between">
+                          <span>Lucro Bruto:</span>
+                          <span className="font-semibold">{currency} {displayRetailProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between opacity-80">
+                          <span>Multiplicador:</span>
+                          <span>{(displayRetailPrice / displayTotalProductionCost).toFixed(1)}x</span>
+                        </div>
                       </div>
                     </motion.div>
 
@@ -1842,11 +2292,17 @@ export default function App() {
                       </div>
                       <div className="text-sm text-slate-500 mb-1">Preço com {wholesaleMargin}% de Margem</div>
                       <div className="text-4xl font-bold tracking-tight text-slate-900">
-                        {currency} {wholesalePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        {currency} {displayWholesalePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
-                      <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between text-sm text-slate-500">
-                        <span>Lucro: {currency} {(wholesalePrice - totalProductionCost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                        <span className="opacity-60">Multiplicador: {(wholesalePrice / totalProductionCost).toFixed(1)}x</span>
+                      <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-1 text-sm text-slate-500">
+                        <div className="flex justify-between">
+                          <span>Lucro Bruto:</span>
+                          <span className="font-semibold text-slate-800">{currency} {displayWholesaleProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between opacity-80">
+                          <span>Multiplicador:</span>
+                          <span>{(displayWholesalePrice / displayTotalProductionCost).toFixed(1)}x</span>
+                        </div>
                       </div>
                     </motion.div>
                   </motion.div>
