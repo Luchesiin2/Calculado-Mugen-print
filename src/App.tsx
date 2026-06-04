@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Calculator, Package, User, DollarSign, Weight, History, Trash2, Save, Percent, TrendingUp, Download, Globe, X, Plus, Minus, Divide, Equal, FileText, Settings, Copy, Share2, MessageCircle, ArrowUpRight, ShoppingBag, Truck, Tag, Megaphone, Info, Clock, Zap, BarChart3, Video, Sparkles, Palette, Layers } from 'lucide-react';
+import { Calculator, Package, User, DollarSign, Weight, History, Trash2, Save, Percent, TrendingUp, Download, Globe, X, Plus, Minus, Divide, Equal, FileText, Settings, Copy, Share2, MessageCircle, ArrowUpRight, ShoppingBag, Truck, Tag, Megaphone, Info, Clock, Zap, BarChart3, Video, Sparkles, Palette, Layers, Instagram } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -82,6 +82,7 @@ export default function App() {
   const [showTextQuotePopup, setShowTextQuotePopup] = useState(false);
   const [showWhatsappCard, setShowWhatsappCard] = useState(true);
   const [showFauxCalcMsg, setShowFauxCalcMsg] = useState(false);
+  const [fauxCalcClicks, setFauxCalcClicks] = useState<number>(0);
   const [showShopeeInfo, setShowShopeeInfo] = useState(false);
   const [textQuote, setTextQuote] = useState('');
   const [quoteType, setQuoteType] = useState<'whatsapp' | 'instagram'>('whatsapp');
@@ -2308,18 +2309,38 @@ export default function App() {
             {/* Faux Calcular Button */}
             <div className="mt-8 mb-6 p-6 bg-red-50 border border-red-200 rounded-3xl shadow-md text-center max-w-lg mx-auto">
               <button
-                onClick={() => setShowFauxCalcMsg(true)}
+                onClick={() => {
+                  setFauxCalcClicks(prev => prev + 1);
+                  setShowFauxCalcMsg(true);
+                }}
                 className="w-full sm:w-auto px-12 py-4 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold rounded-2xl shadow-xl transition-all duration-300 uppercase tracking-widest text-lg"
               >
                 CALCULAR
               </button>
               {showFauxCalcMsg && (
                 <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-4 p-4 bg-white text-rose-950 font-black text-sm uppercase tracking-wider rounded-xl border-2 border-red-300 shadow-sm"
+                  key={fauxCalcClicks}
+                  initial={{ opacity: 0, scale: 0.95, y: -5 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  className="mt-4 p-4 bg-white text-rose-950 font-black text-sm uppercase tracking-wider rounded-xl border-2 border-red-300 shadow-sm transition-all flex flex-col items-center justify-center gap-2"
                 >
-                  PORQUE PEDIRAM O BOTAO ENTAO AGORA TEM (Não faz nada mas tem)
+                  <span>
+                    {fauxCalcClicks >= 35
+                      ? "JA QUE CLICOU TANTO ME SEGUE LA NO INSTAGRAM O BOTAO TA ALI DO LADO"
+                      : fauxCalcClicks >= 25
+                      ? "CARACA NAO AGUENTO MAIS VOCE CLICANDO EM MIM VAMOS PARANDO???"
+                      : fauxCalcClicks >= 15
+                      ? "NOSSA VOCÊ E INSISTENTE NE?"
+                      : fauxCalcClicks >= 5
+                      ? "JA DISSE QUE E UM BOTAO QUE NAO FAZ NADA"
+                      : "PORQUE PEDIRAM O BOTAO ENTAO AGORA TEM (Não faz nada mas tem)"}
+                  </span>
+                  {fauxCalcClicks >= 35 && (
+                    <div className="flex items-center gap-1.5 mt-2 text-rose-600 animate-bounce">
+                      <span className="font-extrabold text-xs">OLHA PARA O CANTO INFERIOR DIREITO! 👉</span>
+                      <Instagram className="w-5 h-5 animate-pulse" />
+                    </div>
+                  )}
                 </motion.div>
               )}
             </div>
@@ -2943,6 +2964,30 @@ export default function App() {
             </div>
           )}
           
+          <motion.a
+            href="https://www.instagram.com/eulaan_/"
+            target="_blank"
+            rel="noopener noreferrer"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            className={`w-14 h-14 bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-600 text-white rounded-full shadow-2xl flex items-center justify-center transition-all group relative ${
+              fauxCalcClicks >= 35 ? 'animate-bounce ring-4 ring-rose-400 ring-offset-2 z-[120]' : ''
+            }`}
+          >
+            <Instagram className="w-6 h-6" />
+            <span className="absolute right-full mr-3 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+              Meu Instagram (@eulaan_)
+            </span>
+            {fauxCalcClicks >= 35 && (
+              <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+                <span className="bg-rose-600 text-white px-2.5 py-1 rounded-lg text-[10px] font-black uppercase whitespace-nowrap animate-pulse border border-rose-350 shadow-md">
+                  ME SEGUE AQUI!
+                </span>
+                <span className="text-xl animate-bounce">👉</span>
+              </div>
+            )}
+          </motion.a>
+
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
