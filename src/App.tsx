@@ -80,6 +80,7 @@ export default function App() {
   const [showCalcPopup, setShowCalcPopup] = useState(false);
   const [showPdfPopup, setShowPdfPopup] = useState(false);
   const [showTextQuotePopup, setShowTextQuotePopup] = useState(false);
+  const [showWhatsappCard, setShowWhatsappCard] = useState(true);
   const [showShopeeInfo, setShowShopeeInfo] = useState(false);
   const [textQuote, setTextQuote] = useState('');
   const [quoteType, setQuoteType] = useState<'whatsapp' | 'instagram'>('whatsapp');
@@ -295,8 +296,17 @@ export default function App() {
     // However, if some purge is set (e.g. for multicolor in direct sell), we can keep it.
     const purgeW = keychainPurgeWeight || 0;
     if (purgeW <= 0) return 0;
-    return (filamentPrice / 1000) * purgeW;
-  }, [filamentPrice, keychainPurgeWeight]);
+    
+    let priceToUse = filamentPrice;
+    if (useMulticolor) {
+      const activeColors = multicolorColors.filter(c => c.enabled);
+      if (activeColors.length > 0) {
+        const sumPrice = activeColors.reduce((sum, c) => sum + c.filamentPrice, 0);
+        priceToUse = sumPrice / activeColors.length;
+      }
+    }
+    return (priceToUse / 1000) * purgeW;
+  }, [filamentPrice, keychainPurgeWeight, useMulticolor, multicolorColors]);
 
   const keychainExtrasCost = useMemo(() => {
     if (!isKeychainMode) return 0;
@@ -319,18 +329,26 @@ export default function App() {
   }, [useAdvancedCosts, printTimeHours, printTimeMinutes, hourlyRate, electricityKwhPrice, printerPowerWatts, printerPrice, printerLifespan]);
 
   const materialLossCost = useMemo(() => {
+    // Purge is completely omitted from the unitary base calculation
+    return materialCost * (lossPercentage / 100);
+  }, [materialCost, lossPercentage]);
+
+  const unitProductionCostExclPurge = useMemo(() => {
     const N = usePartsQuantity ? Math.max(1, partsQuantity) : 1;
-    // Purge block is printed once per build plate.
+    const advancedCostsPerPiece = advancedCosts.total / N;
+    return materialCost + keychainExtrasCost + advancedCostsPerPiece + materialLossCost;
+  }, [materialCost, keychainExtrasCost, advancedCosts.total, materialLossCost, usePartsQuantity, partsQuantity]);
+
+  const amortizedUnitCost = useMemo(() => {
+    const N = usePartsQuantity ? Math.max(1, partsQuantity) : 1;
     const purgePerPiece = keychainPurgeCost / N;
-    return (materialCost + purgePerPiece) * (lossPercentage / 100);
-  }, [materialCost, keychainPurgeCost, lossPercentage, usePartsQuantity, partsQuantity]);
+    const purgeLossPerPiece = purgePerPiece * (lossPercentage / 100);
+    return unitProductionCostExclPurge + purgePerPiece + purgeLossPerPiece;
+  }, [unitProductionCostExclPurge, keychainPurgeCost, lossPercentage, usePartsQuantity, partsQuantity]);
 
   const totalProductionCost = useMemo(() => {
-    const N = usePartsQuantity ? Math.max(1, partsQuantity) : 1;
-    const purgePerPiece = keychainPurgeCost / N;
-    const advancedCostsPerPiece = advancedCosts.total / N;
-    return materialCost + purgePerPiece + keychainExtrasCost + advancedCostsPerPiece + materialLossCost;
-  }, [materialCost, keychainPurgeCost, keychainExtrasCost, advancedCosts.total, materialLossCost, usePartsQuantity, partsQuantity]);
+    return amortizedUnitCost;
+  }, [amortizedUnitCost]);
 
   const retailPrice = useMemo(() => {
     return totalProductionCost * (1 + retailMargin / 100);
@@ -602,10 +620,46 @@ export default function App() {
   const isBatchView = usePartsQuantity && partsQuantity > 1 && viewScope === 'batch';
   const displayMultiplier = isBatchView ? numParts : 1;
 
-  const displayTotalProductionCost = totalProductionCost * displayMultiplier;
+  const displayTotalProductionCost = useMemo(() => {
+    if (isBatchView) {
+      const purgeTotal = keychainPurgeCost * (1 + lossPercentage / 100);
+      return (unitProductionCostExclPurge * numParts) + purgeTotal;
+    } else {
+      if (usePartsQuantity) {
+        return unitProductionCostExclPurge;
+      } else {
+        const purgeTotal = keychainPurgeCost * (1 + lossPercentage / 100);
+        return unitProductionCostExclPurge + purgeTotal;
+      }
+    }
+  }, [isBatchView, usePartsQuantity, numParts, unitProductionCostExclPurge, keychainPurgeCost, lossPercentage]);
+
   const displayMaterialCost = materialCost * displayMultiplier;
-  const displayMaterialLossCost = materialLossCost * displayMultiplier;
-  const displayPurgeCost = keychainPurgeCost * (isBatchView ? 1 : (1 / numParts));
+
+  const displayMaterialLossCost = useMemo(() => {
+    const unitLoss = materialCost * (lossPercentage / 100);
+    if (isBatchView) {
+      return (unitLoss * numParts) + (keychainPurgeCost * (lossPercentage / 100));
+    } else {
+      if (usePartsQuantity) {
+        return unitLoss;
+      } else {
+        return unitLoss + (keychainPurgeCost * (lossPercentage / 100));
+      }
+    }
+  }, [isBatchView, usePartsQuantity, numParts, materialCost, keychainPurgeCost, lossPercentage]);
+
+  const displayPurgeCost = useMemo(() => {
+    if (isBatchView) {
+      return keychainPurgeCost;
+    } else {
+      if (usePartsQuantity) {
+        return 0;
+      } else {
+        return keychainPurgeCost;
+      }
+    }
+  }, [isBatchView, usePartsQuantity, keychainPurgeCost]);
   const displayExtrasCost = keychainExtrasCost * displayMultiplier;
   const displayAdvancedElectricityCost = advancedCosts.electricity * (isBatchView ? 1 : (1 / numParts));
   const displayAdvancedLaborCost = advancedCosts.labor * (isBatchView ? 1 : (1 / numParts));
@@ -672,10 +726,17 @@ export default function App() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowPdfPopup(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all border border-slate-200"
+                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all border border-slate-200 shadow-sm"
               >
                 <FileText className="w-4 h-4" />
                 PDF
+              </button>
+              <button
+                onClick={() => setShowWhatsappCard(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-bold hover:bg-emerald-100 transition-all border border-emerald-200 shadow-sm"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Grupo 3D
               </button>
             </div>
             <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
@@ -2865,6 +2926,18 @@ export default function App() {
           <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
+            onClick={() => setShowWhatsappCard(!showWhatsappCard)}
+            className="w-14 h-14 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-2xl flex items-center justify-center transition-all group relative"
+          >
+            <MessageCircle className="w-6 h-6" />
+            <span className="absolute right-full mr-3 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+              Grupo WhatsApp
+            </span>
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
             onClick={() => setShowCalcPopup(!showCalcPopup)}
             className="w-14 h-14 bg-slate-800 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-slate-900 transition-all group relative"
           >
@@ -3316,6 +3389,67 @@ export default function App() {
                     >
                       <Share2 className="w-5 h-5" />
                       Enviar WhatsApp
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* WhatsApp Group Invite Persistent Floating Card */}
+        <AnimatePresence>
+          {showWhatsappCard && (
+            <div className="fixed bottom-24 right-6 z-[110] max-w-[calc(100vw-32px)] w-80">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 50 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 50 }}
+                className="bg-white rounded-2xl shadow-2xl border border-emerald-100 overflow-hidden flex flex-col"
+              >
+                <div className="bg-emerald-600 px-4 py-3 text-white flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <MessageCircle className="w-5 h-5" />
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-emerald-600 animate-ping" />
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-emerald-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold leading-tight">Grupo de Suporte</h4>
+                      <p className="text-[9px] text-emerald-100 font-mono">ONLINE</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowWhatsappCard(false)}
+                    className="p-1 hover:bg-white/10 rounded-full transition-colors text-white"
+                    title="Minimizar"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="p-4 space-y-3.5">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-extrabold text-slate-800">MUNDO DO 3D do LAN</h3>
+                    <p className="text-xs text-slate-600 leading-relaxed">
+                      Entre em nosso grupo do <strong className="text-emerald-700 font-extrabold">MUNDO DO 3D do LAN</strong> e aprenda mais sobre o mundo e tire todas suas dúvidas!
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href="https://chat.whatsapp.com/GhXsOIScMoM6U9ywtkQByu"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-emerald-200/50"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      Entrar no WhatsApp
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </a>
+                    <button
+                      onClick={() => setShowWhatsappCard(false)}
+                      className="px-3 py-2.5 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl text-xs font-medium transition-all border border-slate-200"
+                    >
+                      Ocultar
                     </button>
                   </div>
                 </div>
