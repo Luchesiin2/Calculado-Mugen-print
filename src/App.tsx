@@ -816,88 +816,134 @@ export default function App() {
                           <Weight className="w-3 h-3" /> Custos de Material
                         </h3>
                         <div className="space-y-4">
-                          <div>
-                            <label className="block text-xs text-slate-500 mb-1">Preço Filamento ({currency}/kg)</label>
-                            <div className="relative">
-                              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                              <input
-                                type="number"
-                                value={filamentPrice}
-                                onChange={(e) => setFilamentPrice(Number(e.target.value))}
-                                className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Seletor de Quantidade na Mesa */}
-                          <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
-                            <div className="flex items-center gap-2">
-                              <Layers className="w-4 h-4 text-rose-900" />
-                              <div>
-                                <span className="text-xs font-bold text-slate-700 block">Quantidade na Mesa</span>
-                                <span className="text-[10px] text-slate-400">Dividir custos fixos pelo lote</span>
-                              </div>
-                            </div>
+                          {/* Seletor de Modo de Orçamento */}
+                          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200/50 shadow-inner">
                             <button
                               type="button"
-                              onClick={() => setUsePartsQuantity(!usePartsQuantity)}
-                              className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors ${usePartsQuantity ? 'bg-rose-900' : 'bg-slate-300'}`}
+                              id="direct-unit-mode-btn"
+                              onClick={() => {
+                                setUsePartsQuantity(false);
+                                setUseMulticolor(false);
+                              }}
+                              className={`py-1.5 px-3 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1 ${
+                                !usePartsQuantity && !useMulticolor
+                                  ? 'bg-white text-rose-900 shadow-sm border border-slate-200/40'
+                                  : 'text-slate-500 hover:text-slate-700'
+                              }`}
                             >
-                              <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${usePartsQuantity ? 'translate-x-4' : 'translate-x-0'}`} />
+                              <User className="w-3.5 h-3.5" />
+                              Orçamento Unitário
+                            </button>
+                            <button
+                              type="button"
+                              id="direct-batch-color-mode-btn"
+                              onClick={() => {
+                                setUsePartsQuantity(true);
+                                setUseMulticolor(true);
+                                if (partsQuantity <= 1) {
+                                  setPartsQuantity(4);
+                                }
+                              }}
+                              className={`py-1.5 px-3 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 ${
+                                usePartsQuantity && useMulticolor
+                                  ? 'bg-rose-900 text-white shadow-sm'
+                                  : 'text-slate-500 hover:text-slate-700'
+                              }`}
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                              Lote Multicolorido
                             </button>
                           </div>
 
-                          {usePartsQuantity && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -5 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="p-3 bg-rose-50/40 rounded-xl border border-rose-100/30 space-y-2"
-                            >
-                              <label className="block text-[11px] font-bold text-rose-950">Qtd. Peças na Mesa (Lote):</label>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setPartsQuantity(Math.max(1, partsQuantity - 1))}
-                                  className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 active:scale-95"
-                                >
-                                  <Minus className="w-3.5 h-3.5" />
-                                </button>
+                          {!useMulticolor && (
+                            <div>
+                              <label className="block text-xs text-slate-500 mb-1">Preço Filamento ({currency}/kg)</label>
+                              <div className="relative">
+                                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                 <input
                                   type="number"
-                                  value={partsQuantity}
-                                  onChange={(e) => setPartsQuantity(Math.max(1, Number(e.target.value)))}
-                                  className="w-16 text-center py-1 rounded-lg border border-slate-200 font-bold text-slate-800 outline-none text-sm"
-                                  min="1"
+                                  value={filamentPrice}
+                                  onChange={(e) => setFilamentPrice(Number(e.target.value))}
+                                  className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
                                 />
-                                <button
-                                  type="button"
-                                  onClick={() => setPartsQuantity(partsQuantity + 1)}
-                                  className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 active:scale-95"
-                                >
-                                  <Plus className="w-3.5 h-3.5" />
-                                </button>
-                                <span className="text-[10px] text-slate-400 italic">peças impressas juntas</span>
-                              </div>
-                            </motion.div>
-                          )}
-
-                          {/* Seletor de Multicolor */}
-                          <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
-                            <div className="flex items-center gap-2">
-                              <Palette className="w-4 h-4 text-emerald-600" />
-                              <div>
-                                <span className="text-xs font-bold text-slate-700 block">Ativar Multicolor</span>
-                                <span className="text-[10px] text-slate-400">Peso separado por cor / valor</span>
                               </div>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => setUseMulticolor(!useMulticolor)}
-                              className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors ${useMulticolor ? 'bg-rose-900' : 'bg-slate-300'}`}
-                            >
-                              <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${useMulticolor ? 'translate-x-4' : 'translate-x-0'}`} />
-                            </button>
-                          </div>
+                          )}
+
+                          {/* Seletor de Quantidade na Mesa e Multicolor (Apenas visíveis no modo Lote Multicolorido) */}
+                          {(usePartsQuantity || useMulticolor) && (
+                            <>
+                              {/* Seletor de Quantidade na Mesa */}
+                              <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                                <div className="flex items-center gap-2">
+                                  <Layers className="w-4 h-4 text-rose-900" />
+                                  <div>
+                                    <span className="text-xs font-bold text-slate-700 block">Quantidade na Mesa</span>
+                                    <span className="text-[10px] text-slate-400">Dividir custos fixos pelo lote</span>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setUsePartsQuantity(!usePartsQuantity)}
+                                  className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors ${usePartsQuantity ? 'bg-rose-900' : 'bg-slate-300'}`}
+                                >
+                                  <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${usePartsQuantity ? 'translate-x-4' : 'translate-x-0'}`} />
+                                </button>
+                              </div>
+
+                              {usePartsQuantity && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className="p-3 bg-rose-50/40 rounded-xl border border-rose-100/30 space-y-2"
+                                >
+                                  <label className="block text-[11px] font-bold text-rose-950">Qtd. Peças na Mesa (Lote):</label>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setPartsQuantity(Math.max(1, partsQuantity - 1))}
+                                      className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 active:scale-95"
+                                    >
+                                      <Minus className="w-3.5 h-3.5" />
+                                    </button>
+                                    <input
+                                      type="number"
+                                      value={partsQuantity}
+                                      onChange={(e) => setPartsQuantity(Math.max(1, Number(e.target.value)))}
+                                      className="w-16 text-center py-1 rounded-lg border border-slate-200 font-bold text-slate-800 outline-none text-sm"
+                                      min="1"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => setPartsQuantity(partsQuantity + 1)}
+                                      className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 active:scale-95"
+                                    >
+                                      <Plus className="w-3.5 h-3.5" />
+                                    </button>
+                                    <span className="text-[10px] text-slate-400 italic">peças impressas juntas</span>
+                                  </div>
+                                </motion.div>
+                              )}
+
+                              {/* Seletor de Multicolor */}
+                              <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                                <div className="flex items-center gap-2">
+                                  <Palette className="w-4 h-4 text-emerald-600" />
+                                  <div>
+                                    <span className="text-xs font-bold text-slate-700 block">Ativar Multicolor</span>
+                                    <span className="text-[10px] text-slate-400">Peso separado por cor / valor</span>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setUseMulticolor(!useMulticolor)}
+                                  className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors ${useMulticolor ? 'bg-rose-900' : 'bg-slate-300'}`}
+                                >
+                                  <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${useMulticolor ? 'translate-x-4' : 'translate-x-0'}`} />
+                                </button>
+                              </div>
+                            </>
+                          )}
 
                           {useMulticolor && (
                             <motion.div
@@ -1291,84 +1337,131 @@ export default function App() {
                           <Weight className="w-3 h-3" /> Custos de Insumo
                         </h3>
                         <div className="space-y-4">
-                          <div>
-                            <label className="block text-xs text-slate-500 mb-1">Preço Filamento ({currency}/kg)</label>
-                            <input
-                              type="number"
-                              value={filamentPrice}
-                              onChange={(e) => setFilamentPrice(Number(e.target.value))}
-                              className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
-                            />
-                          </div>
-                          {/* Seletor de Quantidade na Mesa */}
-                          <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
-                            <div className="flex items-center gap-2">
-                              <Layers className="w-4 h-4 text-rose-900" />
-                              <div>
-                                <span className="text-xs font-bold text-slate-700 block">Quantidade na Mesa</span>
-                                <span className="text-[10px] text-slate-400">Dividir custos fixos pelo lote</span>
-                              </div>
-                            </div>
+                          {/* Seletor de Modo de Orçamento */}
+                          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200/50 shadow-inner">
                             <button
                               type="button"
-                              onClick={() => setUsePartsQuantity(!usePartsQuantity)}
-                              className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors ${usePartsQuantity ? 'bg-rose-900' : 'bg-slate-300'}`}
+                              id="keychain-unit-mode-btn"
+                              onClick={() => {
+                                setUsePartsQuantity(false);
+                                setUseMulticolor(false);
+                              }}
+                              className={`py-1.5 px-3 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1 ${
+                                !usePartsQuantity && !useMulticolor
+                                  ? 'bg-white text-rose-900 shadow-sm border border-slate-200/40'
+                                  : 'text-slate-500 hover:text-slate-700'
+                              }`}
                             >
-                              <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${usePartsQuantity ? 'translate-x-4' : 'translate-x-0'}`} />
+                              <User className="w-3.5 h-3.5" />
+                              Orçamento Unitário
+                            </button>
+                            <button
+                              type="button"
+                              id="keychain-batch-color-mode-btn"
+                              onClick={() => {
+                                setUsePartsQuantity(true);
+                                setUseMulticolor(true);
+                                if (partsQuantity <= 1) {
+                                  setPartsQuantity(4);
+                                }
+                              }}
+                              className={`py-1.5 px-3 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 ${
+                                usePartsQuantity && useMulticolor
+                                  ? 'bg-rose-900 text-white shadow-sm'
+                                  : 'text-slate-500 hover:text-slate-700'
+                              }`}
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                              Lote Multicolorido
                             </button>
                           </div>
 
-                          {usePartsQuantity && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -5 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              className="p-3 bg-rose-50/40 rounded-xl border border-rose-100/30 space-y-2"
-                            >
-                              <label className="block text-[11px] font-bold text-rose-950">Qtd. Peças na Mesa (Lote):</label>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setPartsQuantity(Math.max(1, partsQuantity - 1))}
-                                  className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 active:scale-95"
-                                >
-                                  <Minus className="w-3.5 h-3.5" />
-                                </button>
-                                <input
-                                  type="number"
-                                  value={partsQuantity}
-                                  onChange={(e) => setPartsQuantity(Math.max(1, Number(e.target.value)))}
-                                  className="w-16 text-center py-1 rounded-lg border border-slate-200 font-bold text-slate-800 outline-none text-sm"
-                                  min="1"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => setPartsQuantity(partsQuantity + 1)}
-                                  className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 active:scale-95"
-                                >
-                                  <Plus className="w-3.5 h-3.5" />
-                                </button>
-                                <span className="text-[10px] text-slate-400 italic">peças impressas juntas</span>
-                              </div>
-                            </motion.div>
+                          {!useMulticolor && (
+                            <div>
+                              <label className="block text-xs text-slate-500 mb-1">Preço Filamento ({currency}/kg)</label>
+                              <input
+                                type="number"
+                                value={filamentPrice}
+                                onChange={(e) => setFilamentPrice(Number(e.target.value))}
+                                className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-rose-900 outline-none"
+                              />
+                            </div>
                           )}
 
-                          {/* Seletor de Multicolor */}
-                          <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
-                            <div className="flex items-center gap-2">
-                              <Palette className="w-4 h-4 text-emerald-600" />
-                              <div>
-                                <span className="text-xs font-bold text-slate-700 block">Ativar Multicolor</span>
-                                <span className="text-[10px] text-slate-400">Peso separado por cor / valor</span>
+                          {/* Seletor de Quantidade na Mesa e Multicolor (Apenas visíveis no modo Lote Multicolorido) */}
+                          {(usePartsQuantity || useMulticolor) && (
+                            <>
+                              {/* Seletor de Quantidade na Mesa */}
+                              <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                                <div className="flex items-center gap-2">
+                                  <Layers className="w-4 h-4 text-rose-900" />
+                                  <div>
+                                    <span className="text-xs font-bold text-slate-700 block">Quantidade na Mesa</span>
+                                    <span className="text-[10px] text-slate-400">Dividir custos fixos pelo lote</span>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setUsePartsQuantity(!usePartsQuantity)}
+                                  className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors ${usePartsQuantity ? 'bg-rose-900' : 'bg-slate-300'}`}
+                                >
+                                  <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${usePartsQuantity ? 'translate-x-4' : 'translate-x-0'}`} />
+                                </button>
                               </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setUseMulticolor(!useMulticolor)}
-                              className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors ${useMulticolor ? 'bg-rose-900' : 'bg-slate-300'}`}
-                            >
-                              <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${useMulticolor ? 'translate-x-4' : 'translate-x-0'}`} />
-                            </button>
-                          </div>
+
+                              {usePartsQuantity && (
+                                <motion.div
+                                  initial={{ opacity: 0, y: -5 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  className="p-3 bg-rose-50/40 rounded-xl border border-rose-100/30 space-y-2"
+                                >
+                                  <label className="block text-[11px] font-bold text-rose-950">Qtd. Peças na Mesa (Lote):</label>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setPartsQuantity(Math.max(1, partsQuantity - 1))}
+                                      className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 active:scale-95"
+                                    >
+                                      <Minus className="w-3.5 h-3.5" />
+                                    </button>
+                                    <input
+                                      type="number"
+                                      value={partsQuantity}
+                                      onChange={(e) => setPartsQuantity(Math.max(1, Number(e.target.value)))}
+                                      className="w-16 text-center py-1 rounded-lg border border-slate-200 font-bold text-slate-800 outline-none text-sm"
+                                      min="1"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => setPartsQuantity(partsQuantity + 1)}
+                                      className="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50 active:scale-95"
+                                    >
+                                      <Plus className="w-3.5 h-3.5" />
+                                    </button>
+                                    <span className="text-[10px] text-slate-400 italic">peças impressas juntas</span>
+                                  </div>
+                                </motion.div>
+                              )}
+
+                              {/* Seletor de Multicolor */}
+                              <div className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                                <div className="flex items-center gap-2">
+                                  <Palette className="w-4 h-4 text-emerald-600" />
+                                  <div>
+                                    <span className="text-xs font-bold text-slate-700 block">Ativar Multicolor</span>
+                                    <span className="text-[10px] text-slate-400">Peso separado por cor / valor</span>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setUseMulticolor(!useMulticolor)}
+                                  className={`w-9 h-5 flex items-center rounded-full p-0.5 transition-colors ${useMulticolor ? 'bg-rose-900' : 'bg-slate-300'}`}
+                                >
+                                  <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${useMulticolor ? 'translate-x-4' : 'translate-x-0'}`} />
+                                </button>
+                              </div>
+                            </>
+                          )}
 
                           {useMulticolor && (
                             <motion.div
