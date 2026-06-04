@@ -81,6 +81,7 @@ export default function App() {
   const [showPdfPopup, setShowPdfPopup] = useState(false);
   const [showTextQuotePopup, setShowTextQuotePopup] = useState(false);
   const [showWhatsappCard, setShowWhatsappCard] = useState(true);
+  const [showFauxCalcMsg, setShowFauxCalcMsg] = useState(false);
   const [showShopeeInfo, setShowShopeeInfo] = useState(false);
   const [textQuote, setTextQuote] = useState('');
   const [quoteType, setQuoteType] = useState<'whatsapp' | 'instagram'>('whatsapp');
@@ -2303,6 +2304,25 @@ export default function App() {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Faux Calcular Button */}
+            <div className="mt-8 mb-6 p-6 bg-red-50 border border-red-200 rounded-3xl shadow-md text-center max-w-lg mx-auto">
+              <button
+                onClick={() => setShowFauxCalcMsg(true)}
+                className="w-full sm:w-auto px-12 py-4 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-extrabold rounded-2xl shadow-xl transition-all duration-300 uppercase tracking-widest text-lg"
+              >
+                CALCULAR
+              </button>
+              {showFauxCalcMsg && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-4 p-4 bg-white text-rose-950 font-black text-sm uppercase tracking-wider rounded-xl border-2 border-red-300 shadow-sm"
+                >
+                  PORQUE PEDIRAM O BOTAO ENTAO AGORA TEM (Não faz nada mas tem)
+                </motion.div>
+              )}
+            </div>
 
             {/* Results Grid */}
             <AnimatePresence mode="wait">
