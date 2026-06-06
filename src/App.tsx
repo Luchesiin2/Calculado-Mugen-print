@@ -83,6 +83,10 @@ export default function App() {
   const [showWhatsappCard, setShowWhatsappCard] = useState(true);
   const [showFauxCalcMsg, setShowFauxCalcMsg] = useState(false);
   const [fauxCalcClicks, setFauxCalcClicks] = useState<number>(0);
+  const [showEasterEggPopup, setShowEasterEggPopup] = useState(false);
+  const [copiedCoupon, setCopiedCoupon] = useState(false);
+  const [showPrinterEasterEggPopup, setShowPrinterEasterEggPopup] = useState(false);
+  const [copiedPrinterCoupon, setCopiedPrinterCoupon] = useState(false);
   const [showShopeeInfo, setShowShopeeInfo] = useState(false);
   const [textQuote, setTextQuote] = useState('');
   const [quoteType, setQuoteType] = useState<'whatsapp' | 'instagram'>('whatsapp');
@@ -359,6 +363,40 @@ export default function App() {
   const wholesalePrice = useMemo(() => {
     return totalProductionCost * (1 + wholesaleMargin / 100);
   }, [totalProductionCost, wholesaleMargin]);
+
+  const handleCopyCoupon = () => {
+    try {
+      navigator.clipboard.writeText('LAN20');
+      setCopiedCoupon(true);
+      setTimeout(() => setCopiedCoupon(false), 2500);
+    } catch (e) {
+      const el = document.createElement('textarea');
+      el.value = 'LAN20';
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      setCopiedCoupon(true);
+      setTimeout(() => setCopiedCoupon(false), 2500);
+    }
+  };
+
+  const handleCopyPrinterCoupon = () => {
+    try {
+      navigator.clipboard.writeText('EULAAN');
+      setCopiedPrinterCoupon(true);
+      setTimeout(() => setCopiedPrinterCoupon(false), 2500);
+    } catch (e) {
+      const el = document.createElement('textarea');
+      el.value = 'EULAAN';
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      setCopiedPrinterCoupon(true);
+      setTimeout(() => setCopiedPrinterCoupon(false), 2500);
+    }
+  };
 
   const saveCalculation = () => {
     const newCalc: Calculation = {
@@ -843,7 +881,135 @@ export default function App() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Main Calculator Card */}
-          <div className="lg:col-span-8 space-y-6">
+          <div className="lg:col-span-8 space-y-6 relative">
+            {/* Easter Egg Peekaboo Character */}
+            {!showEasterEggPopup && (
+              <div 
+                onClick={() => setShowEasterEggPopup(true)}
+                className="absolute -left-[24px] hover:-left-[108px] top-12 z-0 cursor-pointer select-none group transition-all duration-350 ease-out active:scale-95 w-[140px] h-[120px]"
+                title="Ei! Uma surpresa aqui!"
+              >
+                <svg viewBox="0 0 140 120" className="w-full h-full drop-shadow-lg overflow-visible">
+                  <defs>
+                    {/* Concentric curved paths for texts */}
+                    <path id="peek-text-top" d="M 66,54 A 19,19 0 0,1 104,54" fill="none" />
+                    <path id="peek-text-bottom" d="M 104,76 A 19,19 0 0,1 66,76" fill="none" />
+                  </defs>
+
+                  {/* Left Leg */}
+                  <path d="M 76,92 C 73,99 69,105 58,111" stroke="#18181b" strokeWidth="6" strokeLinecap="round" fill="none" />
+                  {/* Right Leg */}
+                  <path d="M 94,92 C 96,99 101,104 110,111" stroke="#18181b" strokeWidth="6" strokeLinecap="round" fill="none" />
+                  
+                  {/* Left Boot */}
+                  <ellipse cx="54" cy="111" rx="9" ry="5.5" fill="#09090b" stroke="#374151" strokeWidth="1" />
+                  <path d="M 48,111 C 46,110 47,105 55,105 C 59,105 60,110 60,111 Z" fill="#1f2937" />
+                  {/* Right Boot */}
+                  <ellipse cx="113" cy="111" rx="9" ry="5.5" fill="#09090b" stroke="#374151" strokeWidth="1" />
+                  <path d="M 107,111 C 105,110 106,105 114,105 C 118,105 119,110 119,111 Z" fill="#1f2937" />
+
+                  {/* Wavy Left Arm (Our Left, Character's Right) */}
+                  <motion.g
+                    animate={{ rotate: [0, -14, 10, -14, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                    style={{ transformOrigin: "60px 65px" }}
+                  >
+                    {/* Basic Red Accordion base */}
+                    <path d="M 60,65 C 44,72 26,62 18,44" fill="none" stroke="#dc2626" strokeWidth="9" strokeLinecap="round" />
+                    {/* Accordion darker rib markers */}
+                    <path d="M 60,65 C 44,72 26,62 18,44" fill="none" stroke="#7f1d1d" strokeWidth="10.5" strokeDasharray="3,4" strokeLinecap="round" />
+                    {/* Highlights */}
+                    <path d="M 60,65 C 44,72 26,62 18,44" fill="none" stroke="#fca5a5" strokeWidth="1.5" strokeLinecap="round" opacity="0.65" />
+                    
+                    {/* Hand glove */}
+                    <ellipse cx="18" cy="44" rx="6" ry="3" fill="#ffffff" stroke="#1f2937" strokeWidth="1.5" transform="rotate(-30 18 44)" />
+                    <circle cx="16" cy="38" r="7.5" fill="#ffffff" stroke="#1f2937" strokeWidth="1.5" />
+                    <path d="M 10,38 Q 6,28 10,26 Q 13,26 13,32" fill="#fff" stroke="#1f2937" strokeWidth="1.2" strokeLinecap="round" />
+                    <path d="M 13,34 Q 12,23 15,22 Q 18,22 17,29" fill="#fff" stroke="#1f2937" strokeWidth="1.2" strokeLinecap="round" />
+                    <path d="M 17,34 Q 18,24 21,24 Q 23,25 21,31" fill="#fff" stroke="#1f2937" strokeWidth="1.2" strokeLinecap="round" />
+                    <path d="M 20,37 Q 24,30 26,32 Q 27,34 23,38" fill="#fff" stroke="#1f2937" strokeWidth="1.2" strokeLinecap="round" />
+                  </motion.g>
+
+                  {/* Right Arm (Our Right, Character's Left) */}
+                  <motion.g
+                    animate={{ rotate: [0, 8, -8, 8, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
+                    style={{ transformOrigin: "110px 65px" }}
+                  >
+                    {/* Basic Red Accordion base */}
+                    <path d="M 110,65 C 122,60 130,52 134,42" fill="none" stroke="#dc2626" strokeWidth="9" strokeLinecap="round" />
+                    {/* Darker rib markers */}
+                    <path d="M 110,65 C 122,60 130,52 134,42" fill="none" stroke="#7f1d1d" strokeWidth="10.5" strokeDasharray="3,4" strokeLinecap="round" />
+                    {/* Highlights */}
+                    <path d="M 110,65 C 122,60 130,52 134,42" fill="none" stroke="#fca5a5" strokeWidth="1.5" strokeLinecap="round" opacity="0.65" />
+                    
+                    {/* Hand Glove */}
+                    <ellipse cx="134" cy="42" rx="6" ry="3" fill="#ffffff" stroke="#1f2937" strokeWidth="1.5" transform="rotate(30 134 42)" />
+                    <circle cx="136" cy="36" r="7.5" fill="#ffffff" stroke="#1f2937" strokeWidth="1.5" />
+                    <path d="M 142,36 Q 146,26 142,24 Q 139,24 139,30" fill="#fff" stroke="#1f2937" strokeWidth="1.2" strokeLinecap="round" />
+                    <path d="M 139,32 Q 140,21 137,20 Q 134,20 135,27" fill="#fff" stroke="#1f2937" strokeWidth="1.2" strokeLinecap="round" />
+                    <path d="M 135,32 Q 134,22 131,22 Q 129,23 131,29" fill="#fff" stroke="#1f2937" strokeWidth="1.2" strokeLinecap="round" />
+                    <path d="M 132,35 Q 128,28 126,30 Q 125,32 129,36" fill="#fff" stroke="#1f2937" strokeWidth="1.2" strokeLinecap="round" />
+                  </motion.g>
+
+                  {/* 3D Depth Layer - Red Filament wraps visible on the left side */}
+                  <circle cx="78" cy="65" r="28" fill="#b91c1c" />
+                  <circle cx="78" cy="65" r="26" fill="none" stroke="#ef4444" strokeWidth="1" strokeDasharray="2,3" />
+                  <circle cx="78" cy="65" r="23" fill="none" stroke="#dc2626" strokeWidth="1.5" />
+                  <circle cx="78" cy="65" r="20" fill="none" stroke="#fca5a5" strokeWidth="1" strokeDasharray="4,2" />
+                  <circle cx="78" cy="65" r="16" fill="none" stroke="#7f1d1d" strokeWidth="2.5" />
+
+                  {/* Front Main Spool Flange (Black Acrylic/Hard Plastic) */}
+                  <circle cx="85" cy="65" r="28" fill="#18181b" stroke="#3f3f46" strokeWidth="1.5" />
+                  
+                  {/* Front black flange surface grooves */}
+                  <circle cx="85" cy="65" r="26.5" fill="none" stroke="#27272a" strokeWidth="1" />
+                  <circle cx="85" cy="65" r="17.5" fill="none" stroke="#27272a" strokeWidth="1.5" opacity="0.6" />
+
+                  {/* Curved Brand & Spec Text */}
+                  <text fill="#fef08a" fontSize="5.2" fontWeight="950" letterSpacing="0.4" className="font-sans">
+                    <textPath href="#peek-text-top" startOffset="50%" textAnchor="middle">LAN FILAMENTS</textPath>
+                  </text>
+                  <text fill="#fef08a" fontSize="5.2" fontWeight="950" letterSpacing="0.4" className="font-sans">
+                    <textPath href="#peek-text-bottom" startOffset="50%" textAnchor="middle">RED PLASTIC</textPath>
+                  </text>
+
+                  {/* Center core grey structure */}
+                  <circle cx="85" cy="65" r="11" fill="#4b5563" stroke="#1f2937" strokeWidth="1.5" />
+                  <circle cx="85" cy="65" r="6" fill="#09090b" />
+
+                  {/* Cute Vintage Retro eyes (Pacman/Pie eyes style) */}
+                  {/* Left Eye */}
+                  <ellipse cx="78" cy="61" rx="4" ry="6.5" fill="#ffffff" />
+                  <ellipse cx="78" cy="61" rx="2.5" ry="4" fill="#111827" />
+                  {/* Glints */}
+                  <circle cx="77" cy="59" r="1.3" fill="#ffffff" />
+                  <circle cx="79.2" cy="62.5" r="0.6" fill="#ffffff" />
+
+                  {/* Right Eye */}
+                  <ellipse cx="92" cy="61" rx="4" ry="6.5" fill="#ffffff" />
+                  <ellipse cx="92" cy="61" rx="2.5" ry="4" fill="#111827" />
+                  {/* Glints */}
+                  <circle cx="91" cy="59" r="1.3" fill="#ffffff" />
+                  <circle cx="93.2" cy="62.5" r="0.6" fill="#ffffff" />
+
+                  {/* Cheeks Blush */}
+                  <ellipse cx="72.5" cy="67.5" rx="3.5" ry="2.2" fill="#ef4444" opacity="0.65" />
+                  <ellipse cx="97.5" cy="67.5" rx="3.5" ry="2.2" fill="#ef4444" opacity="0.65" />
+
+                  {/* Cute Eyebrows */}
+                  <path d="M 73.5,53.5 Q 77.5,51 81.5,53.5" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.85" />
+                  <path d="M 88.5,53.5 Q 92.5,51 96.5,53.5" stroke="#ffffff" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.85" />
+
+                  {/* Adorable Vintage Smile */}
+                  <path d="M 81,67 Q 85,73 89,67" stroke="#111827" strokeWidth="2.3" strokeLinecap="round" fill="none" />
+                  {/* Smile side dimples */}
+                  <path d="M 79.5,67.5 Q 81,66 81.5,68" stroke="#111827" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+                  <path d="M 90.5,67.5 Q 89,66 88.5,68" stroke="#111827" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+                </svg>
+              </div>
+            )}
+
             <AnimatePresence mode="wait">
               {activeTab === 'direct' ? (
                 <motion.div 
@@ -851,7 +1017,7 @@ export default function App() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
-                  className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200"
+                  className="relative z-10 bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200"
                 >
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -1372,7 +1538,7 @@ export default function App() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
-                  className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200"
+                  className="relative z-10 bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200"
                 >
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -1887,7 +2053,7 @@ export default function App() {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200"
+                  className="relative z-10 bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200"
                 >
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -2013,7 +2179,7 @@ export default function App() {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200"
+                  className="relative z-10 bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200"
                 >
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -2150,7 +2316,7 @@ export default function App() {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200"
+                  className="relative z-10 bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200"
                 >
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -2476,30 +2642,132 @@ export default function App() {
                       </div>
                     </motion.div>
 
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200"
-                    >
-                      <div className="flex items-center justify-between mb-4">
-                        <Package className="w-6 h-6 text-rose-900" />
-                        <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Atacado</span>
-                      </div>
-                      <div className="text-sm text-slate-500 mb-1">Preço com {wholesaleMargin}% de Margem</div>
-                      <div className="text-4xl font-bold tracking-tight text-slate-900">
-                        {currency} {displayWholesalePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </div>
-                      <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-1 text-sm text-slate-500">
-                        <div className="flex justify-between">
-                          <span>Lucro Bruto:</span>
-                          <span className="font-semibold text-slate-800">{currency} {displayWholesaleProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <div className="relative">
+                      {/* Easter Egg 3D Printer Peeking Character */}
+                      {!showPrinterEasterEggPopup && (
+                        <div 
+                          onClick={() => setShowPrinterEasterEggPopup(true)}
+                          className="absolute -right-[24px] hover:-right-[104px] top-6 z-0 cursor-pointer select-none group transition-all duration-350 ease-out active:scale-95 w-[140px] h-[120px]"
+                          title="Ei! Outra surpresa aqui!"
+                        >
+                          <svg viewBox="0 0 140 120" className="w-full h-full drop-shadow-md overflow-visible">
+                            {/* Waving Arm on our Right (Character's Left) waving happily */}
+                            <motion.g
+                              animate={{ rotate: [0, 16, -12, 16, 0] }}
+                              transition={{ repeat: Infinity, duration: 1.3, ease: "easeInOut" }}
+                              style={{ transformOrigin: "105px 65px" }}
+                            >
+                              <path d="M 105,65 Q 122,60 134,42" fill="none" stroke="#1e293b" strokeWidth="8" strokeLinecap="round" />
+                              <path d="M 105,65 Q 122,60 134,42" fill="none" stroke="#334155" strokeWidth="9.5" strokeDasharray="2,3" strokeLinecap="round" />
+                              
+                              {/* Hand Glove */}
+                              <ellipse cx="134" cy="42" rx="6" ry="3" fill="#ffffff" stroke="#111827" strokeWidth="1.5" transform="rotate(30 134 42)" />
+                              <circle cx="136" cy="36" r="7.5" fill="#ffffff" stroke="#111827" strokeWidth="1.5" />
+                              <path d="M 142,36 Q 146,26 142,24 Q 139,24 139,30" fill="#ffffff" stroke="#111827" strokeWidth="1.2" strokeLinecap="round" />
+                              <path d="M 139,32 Q 140,21 137,20 Q 134,20 135,27" fill="#ffffff" stroke="#111827" strokeWidth="1.2" strokeLinecap="round" />
+                              <path d="M 135,32 Q 134,22 131,22 Q 129,23 131,29" fill="#ffffff" stroke="#111827" strokeWidth="1.2" strokeLinecap="round" />
+                            </motion.g>
+
+                            {/* Left Arm on hip */}
+                            <path d="M 70,68 Q 60,72 65,80" fill="none" stroke="#1e293b" strokeWidth="8" strokeLinecap="round" />
+                            <circle cx="65" cy="80" r="5" fill="#ffffff" stroke="#111827" strokeWidth="1.2" />
+
+                            {/* Left Leg */}
+                            <path d="M 78,89 C 76,96 72,102 64,107" stroke="#111827" strokeWidth="5" strokeLinecap="round" fill="none" />
+                            {/* Right Leg */}
+                            <path d="M 98,89 C 100,96 104,102 112,107" stroke="#111827" strokeWidth="5" strokeLinecap="round" fill="none" />
+                            
+                            {/* Left Boot */}
+                            <ellipse cx="60" cy="107" rx="7.5" ry="4.5" fill="#09090b" stroke="#374151" strokeWidth="1" />
+                            {/* Right Boot */}
+                            <ellipse cx="115" cy="107" rx="7.5" ry="4.5" fill="#09090b" stroke="#374151" strokeWidth="1" />
+
+                            {/* Left Pillar */}
+                            <rect x="65" y="44" width="5" height="45" rx="1.5" fill="#334155" />
+                            {/* Right Pillar */}
+                            <rect x="105" y="44" width="5" height="45" rx="1.5" fill="#334155" />
+                            {/* Gantry top bar */}
+                            <rect x="61" y="41" width="49" height="5" rx="1.5" fill="#334155" />
+
+                            {/* Main Printer Body / Chassis */}
+                            <rect x="71" y="55" width="34" height="34" rx="6" fill="#475569" stroke="#1e293b" strokeWidth="2.5" />
+                            <rect x="75" y="80" width="26" height="5" rx="1.5" fill="#fbbf24" opacity="0.9" />
+                            <rect x="78" y="81.5" width="20" height="2" rx="1" fill="#f59e0b" />
+
+                            {/* Mini Spool on Top */}
+                            <g transform="translate(85, 33)">
+                              <circle cx="0" cy="0" r="11" fill="#18181b" stroke="#374151" strokeWidth="1" />
+                              <circle cx="0" cy="0" r="8" fill="#ef4444" />
+                              <circle cx="0" cy="0" r="3" fill="#94a3b8" />
+                            </g>
+
+                            {/* X axis guide rod */}
+                            <rect x="71" y="62" width="34" height="4" fill="#64748b" />
+
+                            {/* Extruder Head (slides slightly) */}
+                            <motion.g animate={{ x: [-5, 5, -5] }} transition={{ repeat: Infinity, duration: 2.8, ease: "easeInOut" }}>
+                              <rect x="85" y="58" width="6" height="8" rx="1.2" fill="#f59e0b" stroke="#78350f" strokeWidth="1" />
+                              <path d="M 87,66 L 89,69 L 89,66 Z" fill="#d97706" />
+                              <path d="M 88,58 Q 84,48 88,38" fill="none" stroke="#ef4444" strokeWidth="1.2" strokeDasharray="2,1" />
+                            </motion.g>
+
+                            {/* Display Bed */}
+                            <rect x="67" y="88" width="42" height="4" rx="1" fill="#334155" />
+
+                            {/* Eyes */}
+                            <ellipse cx="82" cy="70" rx="3.2" ry="5.5" fill="#ffffff" />
+                            <ellipse cx="82" cy="70" rx="2" ry="3.2" fill="#111827" />
+                            <circle cx="81.2" cy="68" r="1.1" fill="#ffffff" />
+
+                            <ellipse cx="94" cy="70" rx="3.2" ry="5.5" fill="#ffffff" />
+                            <ellipse cx="94" cy="70" rx="2" ry="3.2" fill="#111827" />
+                            <circle cx="93.2" cy="68" r="1.1" fill="#ffffff" />
+
+                            {/* Cheeks Blush */}
+                            <ellipse cx="77" cy="75" rx="2.5" ry="1.6" fill="#f43f5e" opacity="0.75" />
+                            <ellipse cx="99" cy="75" rx="2.5" ry="1.6" fill="#f43f5e" opacity="0.75" />
+
+                            {/* Smile */}
+                            <path d="M 85,73.5 Q 88,77.5 91,73.5" stroke="#111827" strokeWidth="2" strokeLinecap="round" fill="none" />
+                            <path d="M 83.8,74 M 92.2,74" stroke="#111827" strokeWidth="1" strokeLinecap="round" />
+
+                            {/* Cute Glowing Printed Heart on Bed */}
+                            <motion.g
+                              animate={{ scale: [1, 1.22, 1], y: [0, -1, 0] }}
+                              transition={{ repeat: Infinity, duration: 1.2 }}
+                              style={{ transformOrigin: "88px 84px" }}
+                            >
+                              <path d="M 88,85 C 88,85 86,83 84.5,83 C 83,83 82,84 82.8,85.2 C 83.5,86.4 88,89 88,89 C 88,89 92.5,86.4 93.2,85.2 C 94,84 93,83 91.5,83 C 90,83 88,85 88,85 Z" fill="#ef4444" />
+                            </motion.g>
+                          </svg>
                         </div>
-                        <div className="flex justify-between opacity-80">
-                          <span>Multiplicador:</span>
-                          <span>{(displayWholesalePrice / displayTotalProductionCost).toFixed(1)}x</span>
+                      )}
+
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="relative z-10 bg-white rounded-3xl p-6 shadow-sm border border-slate-200 h-full"
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <Package className="w-6 h-6 text-rose-900" />
+                          <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Atacado</span>
                         </div>
-                      </div>
-                    </motion.div>
+                        <div className="text-sm text-slate-500 mb-1">Preço com {wholesaleMargin}% de Margem</div>
+                        <div className="text-4xl font-bold tracking-tight text-slate-900">
+                          {currency} {displayWholesalePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                        <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-1 text-sm text-slate-500">
+                          <div className="flex justify-between">
+                            <span>Lucro Bruto:</span>
+                            <span className="font-semibold text-slate-800">{currency} {displayWholesaleProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          <div className="flex justify-between opacity-80">
+                            <span>Multiplicador:</span>
+                            <span>{(displayWholesalePrice / displayTotalProductionCost).toFixed(1)}x</span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    </div>
                   </motion.div>
 
                   <motion.div
@@ -3248,6 +3516,300 @@ export default function App() {
                   >
                     Entendi
                   </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Easter Egg Coupon Popup */}
+        <AnimatePresence>
+          {showEasterEggPopup && (
+            <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center p-4 z-[150]">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.85, y: 30 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.85, y: 30 }}
+                className="bg-white rounded-3xl shadow-3xl w-full max-w-md relative p-8 border-4 border-red-500 overflow-visible text-center"
+              >
+                {/* Standing Character standing on top of popup and pointing */}
+                <div className="absolute -top-[104px] right-6 w-[120px] h-[144px] pointer-events-none drop-shadow-xl">
+                  <svg viewBox="0 0 100 120" className="w-full h-full overflow-visible">
+                    <defs>
+                      <path id="pop-text-top" d="M 32,36 A 18,18 0 0,1 68,36" fill="none" />
+                      <path id="pop-text-bottom" d="M 68,56 A 18,18 0 0,1 32,56" fill="none" />
+                    </defs>
+
+                    {/* Legs */}
+                    <path d="M 42,70 C 39,80 34,88 28,95" stroke="#18181b" strokeWidth="5.5" strokeLinecap="round" fill="none" />
+                    <path d="M 58,70 C 61,80 66,88 72,95" stroke="#18181b" strokeWidth="5.5" strokeLinecap="round" fill="none" />
+                    
+                    {/* Boots */}
+                    <ellipse cx="25" cy="95" rx="8" ry="5.2" fill="#09090b" stroke="#374151" strokeWidth="1" />
+                    <path d="M 19,95 C 17,94 18,89 26,89 C 30,89 31,94 31,95 Z" fill="#1f2937" />
+
+                    <ellipse cx="75" cy="95" rx="8" ry="5.2" fill="#09090b" stroke="#374151" strokeWidth="1" />
+                    <path d="M 69,95 C 67,94 68,89 76,89 C 80,89 81,94 81,95 Z" fill="#1f2937" />
+
+                    {/* Pointing Left Arm (Animated) */}
+                    <motion.g
+                      animate={{ x: [0, -4, 0], y: [0, 3, 0] }}
+                      transition={{ repeat: Infinity, duration: 1.1, ease: "easeInOut" }}
+                    >
+                      <path d="M 28,46 C 14,52 -2,42 -10,24" fill="none" stroke="#dc2626" strokeWidth="7.5" strokeLinecap="round" />
+                      <path d="M 28,46 C 14,52 -2,42 -10,24" fill="none" stroke="#7f1d1d" strokeWidth="8.8" strokeDasharray="2,3" strokeLinecap="round" />
+                      <path d="M 28,46 C 14,52 -2,42 -10,24" fill="none" stroke="#fca5a5" strokeWidth="1" strokeLinecap="round" opacity="0.65" />
+                      
+                      {/* Glove */}
+                      <ellipse cx="-10" cy="24" rx="5" ry="2.5" fill="#ffffff" stroke="#1f2937" strokeWidth="1.2" transform="rotate(-30 -10 24)" />
+                      <circle cx="-12" cy="19" r="6" fill="#ffffff" stroke="#1f2937" strokeWidth="1.2" />
+                    </motion.g>
+
+                    {/* Right Arm on Hip */}
+                    <path d="M 72,46 Q 84,54 74,62" fill="none" stroke="#dc2626" strokeWidth="7.5" strokeLinecap="round" />
+                    <path d="M 72,46 Q 84,54 74,62" fill="none" stroke="#7f1d1d" strokeWidth="8.8" strokeDasharray="2,3" strokeLinecap="round" />
+                    <circle cx="74" cy="61" r="5" fill="#ffffff" stroke="#1f2937" strokeWidth="1.2" />
+
+                    {/* 3D Depth filament winding on left */}
+                    <circle cx="44" cy="46" r="25" fill="#b91c1c" />
+                    <circle cx="44" cy="46" r="23" fill="none" stroke="#ef4444" strokeWidth="1" strokeDasharray="2,2" />
+                    <circle cx="44" cy="46" r="20" fill="none" stroke="#dc2626" strokeWidth="1.5" />
+
+                    {/* Main Black Front Flange */}
+                    <circle cx="50" cy="46" r="25" fill="#18181b" stroke="#3f3f46" strokeWidth="1.5" />
+                    <circle cx="50" cy="46" r="23.5" fill="none" stroke="#27272a" strokeWidth="1" />
+
+                    {/* Curved brand labels */}
+                    <text fill="#fef08a" fontSize="4.5" fontWeight="950" letterSpacing="0.2">
+                      <textPath href="#pop-text-top" startOffset="50%" textAnchor="middle">LAN FILAMENTS</textPath>
+                    </text>
+                    <text fill="#fef08a" fontSize="4.5" fontWeight="950" letterSpacing="0.2">
+                      <textPath href="#pop-text-bottom" startOffset="50%" textAnchor="middle">RED PLASTIC</textPath>
+                    </text>
+
+                    {/* Center Core Hub */}
+                    <circle cx="50" cy="46" r="10" fill="#4b5563" stroke="#1f2937" strokeWidth="1.2" />
+                    <circle cx="50" cy="46" r="5" fill="#09090b" />
+
+                    {/* Curious eyes looking down at coupon */}
+                    {/* Left Eye */}
+                    <ellipse cx="44" cy="42" rx="3.5" ry="5.8" fill="#ffffff" />
+                    <ellipse cx="44" cy="43.5" rx="2" ry="3.5" fill="#111827" />
+                    <circle cx="43" cy="41.2" r="1" fill="#ffffff" />
+
+                    {/* Right Eye */}
+                    <ellipse cx="56" cy="42" rx="3.5" ry="5.8" fill="#ffffff" />
+                    <ellipse cx="56" cy="43.5" rx="2" ry="3.5" fill="#111827" />
+                    <circle cx="55" cy="41.2" r="1" fill="#ffffff" />
+
+                    {/* Cheeks */}
+                    <ellipse cx="38" cy="48" rx="3" ry="1.8" fill="#ef4444" opacity="0.65" />
+                    <ellipse cx="62" cy="48" rx="3" ry="1.8" fill="#ef4444" opacity="0.65" />
+
+                    {/* Eyebrows */}
+                    <path d="M 40,35.5 Q 44,33 48,35.5" stroke="#ffffff" strokeWidth="0.8" strokeLinecap="round" fill="none" />
+                    <path d="M 52,35.5 Q 56,33 60,35.5" stroke="#ffffff" strokeWidth="0.8" strokeLinecap="round" fill="none" />
+
+                    {/* Smile */}
+                    <path d="M 46,47.5 Q 50,53 54,47.5" stroke="#111827" strokeWidth="2" strokeLinecap="round" fill="none" />
+                    <path d="M 44.5,48.2 Q 46,46.8 46.5,48.5" stroke="#111827" strokeWidth="1" strokeLinecap="round" fill="none" />
+                    <path d="M 55.5,48.2 Q 54,46.8 53.5,48.5" stroke="#111827" strokeWidth="1" strokeLinecap="round" fill="none" />
+                  </svg>
+                </div>
+
+                {/* Close Button on Top-Left */}
+                <button
+                  onClick={() => setShowEasterEggPopup(false)}
+                  className="absolute -top-3 -left-3 bg-slate-900 border-2 border-slate-700 hover:bg-slate-800 text-white p-2.5 rounded-full shadow-2xl transition-transform hover:scale-110 active:scale-95"
+                  title="Fechar Janela"
+                >
+                  <X className="w-5 h-5 font-black" />
+                </button>
+
+                {/* Sparkling Celebratory Headers */}
+                <div className="flex items-center justify-center gap-1.5 mt-2 mb-3 text-red-600">
+                  <Sparkles className="w-6 h-6 animate-pulse text-yellow-500" />
+                  <span className="text-2xl font-black uppercase tracking-wider">PARABÉNS!!! 🎉</span>
+                  <Sparkles className="w-6 h-6 animate-pulse text-yellow-500" />
+                </div>
+
+                <h3 className="text-lg font-extrabold text-slate-800 leading-snug mb-4 uppercase tracking-wide">
+                  Você encontrou o desconto da <span className="text-red-600 block">ClosIn de 20 Reais!</span>
+                </h3>
+
+                <p className="text-slate-600 text-sm font-medium leading-relaxed mb-6">
+                  Clique no link abaixo para acessar a loja e utilize o cupom especial ao finalizar sua compra de filamentos ClosIn para garantir o desconto especial!
+                </p>
+
+                {/* Interactive Coupon Box */}
+                <div 
+                  onClick={handleCopyCoupon}
+                  className="p-5 bg-red-50 border-3 border-dashed border-red-500 rounded-2xl cursor-pointer hover:bg-red-100/70 active:scale-[0.98] transition-all relative group flex flex-col items-center justify-center gap-1 shadow-inner"
+                  title="Clique para Copiar"
+                >
+                  <span className="text-[10px] font-black tracking-widest text-red-500 uppercase">CUPOM DE DESCONTO</span>
+                  <span className="text-4xl font-black text-red-700 tracking-widest font-mono select-all">LAN20</span>
+                  <span className="text-[11px] font-extrabold text-slate-500 group-hover:text-slate-800 transition-colors flex items-center gap-1 mt-1">
+                    {copiedCoupon ? "COPIADO COM SUCESSO! 📋✨" : "CLIQUE PARA COPIAR 📋"}
+                  </span>
+                </div>
+
+                {/* External Link to Store */}
+                <div className="mt-6">
+                  <a
+                    href="https://www.closin.com.br/?ref=eulaan"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full text-center py-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 active:scale-[0.97] text-white font-black rounded-2xl shadow-lg hover:shadow-xl transition-all uppercase tracking-wider text-xs flex items-center justify-center gap-2"
+                  >
+                    Site do desconto ClosIn
+                    <ArrowUpRight className="w-5 h-5 font-bold" />
+                  </a>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Second Easter Egg (3D Printer) Coupon Popup */}
+        <AnimatePresence>
+          {showPrinterEasterEggPopup && (
+            <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-md flex items-center justify-center p-4 z-[150]">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.85, y: 30 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.85, y: 30 }}
+                className="bg-white rounded-3xl shadow-3xl w-full max-w-md relative p-8 border-4 border-red-500 overflow-visible text-center"
+              >
+                {/* Standing 3D Printer Character standing on top of popup and waving/pointing */}
+                <div className="absolute -top-[108px] right-6 w-[120px] h-[144px] pointer-events-none drop-shadow-xl font-sans">
+                  <svg viewBox="0 0 100 120" className="w-full h-full overflow-visible">
+                    {/* Legs */}
+                    <path d="M 38,78 C 35,88 30,95 24,101" stroke="#18181b" strokeWidth="5" strokeLinecap="round" fill="none" />
+                    <path d="M 58,78 C 61,88 66,95 72,101" stroke="#18181b" strokeWidth="5" strokeLinecap="round" fill="none" />
+                    
+                    {/* Boots */}
+                    <ellipse cx="21" cy="101" rx="7.5" ry="4.5" fill="#09090b" stroke="#374151" strokeWidth="1" />
+                    <path d="M 15,101 C 13,100 14,95 22,95 C 26,95 27,100 27,101 Z" fill="#1f2937" />
+
+                    <ellipse cx="75" cy="101" rx="7.5" ry="4.5" fill="#09090b" stroke="#374151" strokeWidth="1" />
+                    <path d="M 69,101 C 67,100 68,95 76,95 C 80,95 81,100 81,101 Z" fill="#1f2937" />
+
+                    {/* Pointing/Waving Left Arm (Waving back and forth) */}
+                    <motion.g
+                      animate={{ rotate: [0, 14, -14, 14, 0] }}
+                      transition={{ repeat: Infinity, duration: 1.2, ease: "easeInOut" }}
+                      style={{ transformOrigin: "35px 55px" }}
+                    >
+                      <path d="M 33,55 C 19,61 3,51 -5,33" fill="none" stroke="#1e293b" strokeWidth="7.5" strokeLinecap="round" />
+                      <ellipse cx="-5" cy="33" rx="4.5" ry="2.2" fill="#ffffff" stroke="#111827" strokeWidth="1.2" transform="rotate(-30 -5 33)" />
+                      <circle cx="-7" cy="28" r="6" fill="#ffffff" stroke="#111827" strokeWidth="1.2" />
+                    </motion.g>
+
+                    {/* Right Arm resting on side (hip) */}
+                    <path d="M 68,55 Q 78,61 70,69" fill="none" stroke="#1e293b" strokeWidth="7.5" strokeLinecap="round" />
+                    <circle cx="70" cy="68" r="4.5" fill="#ffffff" stroke="#111827" strokeWidth="1.2" />
+
+                    {/* Vertical Frame Pillars */}
+                    <rect x="30" y="30" width="5.5" height="52" rx="1.5" fill="#334155" />
+                    <rect x="66.5" y="30" width="5.5" height="52" rx="1.5" fill="#334155" />
+                    <rect x="25" y="28" width="51" height="5.5" rx="1.5" fill="#334155" />
+
+                    {/* Printer body/chassis */}
+                    <rect x="36" y="44" width="30" height="30" rx="5" fill="#475569" stroke="#1e293b" strokeWidth="2" />
+                    <rect x="40" y="67" width="22" height="4" rx="1.2" fill="#fbbf24" />
+
+                    {/* Mini Spool on Top */}
+                    <g transform="translate(50, 18)">
+                      <circle cx="0" cy="0" r="10" fill="#18181b" stroke="#374151" strokeWidth="1" />
+                      <circle cx="0" cy="0" r="7" fill="#ef4444" />
+                      <circle cx="0" cy="0" r="3" fill="#94a3b8" />
+                    </g>
+
+                    {/* X Axis rod */}
+                    <rect x="36" y="50" width="30" height="3.5" fill="#64748b" />
+
+                    {/* Extruder Head (slides slightly) */}
+                    <motion.g animate={{ x: [-4, 4, -4] }} transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}>
+                      <rect x="48" y="46" width="5" height="7" rx="0.8" fill="#f59e0b" stroke="#78350f" strokeWidth="1" />
+                      <path d="M 49.5,53 L 51.5,55 L 51.5,53 Z" fill="#d97706" />
+                      <path d="M 50.5,46 Q 47,38 50,28" fill="none" stroke="#ef4444" strokeWidth="1" strokeDasharray="1.5,1" />
+                    </motion.g>
+
+                    {/* Print Bed platform */}
+                    <rect x="32" y="74" width="38" height="3.5" rx="1.2" fill="#334155" />
+
+                    {/* Eyes looking down at coupon */}
+                    <ellipse cx="45" cy="56" rx="3" ry="5" fill="#ffffff" />
+                    <ellipse cx="44" cy="57" rx="1.8" ry="3" fill="#111827" />
+                    <circle cx="43.2" cy="55" r="1.0" fill="#ffffff" />
+
+                    <ellipse cx="57" cy="56" rx="3" ry="5" fill="#ffffff" />
+                    <ellipse cx="56" cy="57" rx="1.8" ry="3" fill="#111827" />
+                    <circle cx="55.2" cy="55" r="1.0" fill="#ffffff" />
+
+                    {/* Cheeks Blush */}
+                    <ellipse cx="41" cy="62" rx="2" ry="1.2" fill="#f43f5e" opacity="0.75" />
+                    <ellipse cx="61" cy="62" rx="2" ry="1.2" fill="#f43f5e" opacity="0.75" />
+
+                    {/* Open smile */}
+                    <path d="M 48.5,60.5 Q 51,64 53.5,60.5" stroke="#111827" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+
+                    {/* Printed Glow Heart on bed */}
+                    <motion.g animate={{ scale: [1, 1.25, 1] }} transition={{ repeat: Infinity, duration: 1.0 }} style={{ transformOrigin: "51px 71px" }}>
+                      <path d="M 51,71 C 51,71 49,69 47.5,69 C 46,69 45,70 45.8,71.2 C 46.5,72.4 51,75 51,75 C 51,75 55.5,72.4 56.2,71.2 C 57,70 56,69 54.5,69 C 53,69 51,71 51,71 Z" fill="#ef4444" />
+                    </motion.g>
+                  </svg>
+                </div>
+
+                {/* Close Button on Top-Left */}
+                <button
+                  onClick={() => setShowPrinterEasterEggPopup(false)}
+                  className="absolute -top-3 -left-3 bg-slate-900 border-2 border-slate-700 hover:bg-slate-800 text-white p-2.5 rounded-full shadow-2xl transition-transform hover:scale-110 active:scale-95"
+                  title="Fechar Janela"
+                >
+                  <X className="w-5 h-5 font-black" />
+                </button>
+
+                {/* Sparkling Celebratory Headers */}
+                <div className="flex items-center justify-center gap-1.5 mt-2 mb-3 text-red-600">
+                  <Sparkles className="w-6 h-6 animate-pulse text-yellow-500" />
+                  <span className="text-2xl font-black uppercase tracking-wider">PARABÉNS!!! 🎉</span>
+                  <Sparkles className="w-6 h-6 animate-pulse text-yellow-500" />
+                </div>
+
+                <h3 className="text-lg font-extrabold text-slate-800 leading-snug mb-4 uppercase tracking-wide">
+                  Você encontrou o desconto da <span className="text-red-600 block">ClosIn de 5%!</span>
+                </h3>
+
+                <p className="text-slate-600 text-sm font-medium leading-relaxed mb-6">
+                  Clique no link abaixo para acessar a loja e utilize o cupom especial ao finalizar sua primeira compra de filamentos ClosIn para garantir o desconto especial!
+                </p>
+
+                {/* Interactive Coupon Box */}
+                <div 
+                  onClick={handleCopyPrinterCoupon}
+                  className="p-5 bg-red-50 border-3 border-dashed border-red-500 rounded-2xl cursor-pointer hover:bg-red-100/70 active:scale-[0.98] transition-all relative group flex flex-col items-center justify-center gap-1 shadow-inner font-sans"
+                  title="Clique para Copiar"
+                >
+                  <span className="text-[10px] font-black tracking-widest text-red-500 uppercase">CUPOM DE DESCONTO</span>
+                  <span className="text-4xl font-black text-red-700 tracking-widest font-mono select-all">EULAAN</span>
+                  <span className="text-[11px] font-extrabold text-slate-500 group-hover:text-slate-800 transition-colors flex items-center gap-1 mt-1">
+                    {copiedPrinterCoupon ? "COPIADO COM SUCESSO! 📋✨" : "CLIQUE PARA COPIAR 📋"}
+                  </span>
+                </div>
+
+                {/* External Link to Store */}
+                <div className="mt-6">
+                  <a
+                    href="https://www.closin.com.br/?ref=eulaan"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full text-center py-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 active:scale-[0.97] text-white font-black rounded-2xl shadow-lg hover:shadow-xl transition-all uppercase tracking-wider text-xs flex items-center justify-center gap-2"
+                  >
+                    Site do desconto ClosIn
+                    <ArrowUpRight className="w-5 h-5 font-bold" />
+                  </a>
                 </div>
               </motion.div>
             </div>
